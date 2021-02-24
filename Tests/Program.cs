@@ -12,8 +12,10 @@ namespace Tests
 		{
 			Console.WriteLine("DmdataのAPIキーを入力してください>");
 			var apiKey = Console.ReadLine();
+			if (string.IsNullOrWhiteSpace(apiKey))
+				apiKey = Environment.GetEnvironmentVariable("DMDATA_APIKEY");
 
-			using var client = new DmdataApiClient(apiKey, "KyoshinEewViewer.Dmdata;Example");
+			using var client = new DmdataV1ApiClient(apiKey, "DmdataSharp;Example");
 
 			try
 			{
@@ -48,7 +50,7 @@ namespace Tests
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
-			using var socket = new DmdataSocket(client);
+			using var socket = new DmdataV1Socket(client);
 			socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
 			socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
 			socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
@@ -57,7 +59,13 @@ namespace Tests
 				Console.WriteLine($@"EVENT: data  type: {e.Data.Type} key: {e.Key} valid: {e.Validate()}
       body: {e.GetBodyString().Substring(0, 20)}...");
 			};
-			await socket.ConnectAsync(new[] { TelegramCategory.Earthquake }, "KEVi.Dmdata Example");
+			await socket.ConnectAsync(new[]
+			{
+				TelegramCategoryV1.Earthquake,
+				TelegramCategoryV1.Scheduled,
+				TelegramCategoryV1.Volcano,
+				TelegramCategoryV1.Weather,
+			}, "DmdataSharp;Example");
 
 			Console.ReadLine();
 			await socket.DisconnectAsync();

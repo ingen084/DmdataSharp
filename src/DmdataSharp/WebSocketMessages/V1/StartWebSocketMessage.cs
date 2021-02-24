@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.WebSocketMessages
+namespace DmdataSharp.WebSocketMessages.V1
 {
 	/// <summary>
 	/// WebSocketから飛んでくるstartメッセージを表す
@@ -26,5 +26,4 @@ namespace DmdataSharp.WebSocketMessages
 		[JsonPropertyName("time")]
 		public DateTime? Time { get; set; }
 	}
-
 }

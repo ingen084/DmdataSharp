@@ -5,7 +5,12 @@ VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{E62B8541-724B-492F-85D2-ED2CCA557363}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DmdataSharp", "src\DmdataSharp\DmdataSharp.csproj", "{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DmdataSharp", "src\DmdataSharp\DmdataSharp.csproj", "{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A762A719-7F20-4188-9737-D84C0F0312DA}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

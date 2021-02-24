@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses.Parameters
+namespace DmdataSharp.ApiResponses.V1.Parameters
 {
 	/// <summary>
 	/// dmdataのParameter APIレスポンスの共通部分を表す

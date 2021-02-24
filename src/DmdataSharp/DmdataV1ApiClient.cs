@@ -1,5 +1,5 @@
-﻿using DmdataSharp.ApiResponses;
-using DmdataSharp.ApiResponses.Parameters;
+﻿using DmdataSharp.ApiResponses.V1;
+using DmdataSharp.ApiResponses.V1.Parameters;
 using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -16,7 +16,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのAPIクライアント
 	/// </summary>
-	public class DmdataApiClient : IDisposable
+	public class DmdataV1ApiClient : IDisposable
 	{
 		private HttpClient HttpClient { get; }
 		/// <summary>
@@ -27,24 +27,20 @@ namespace DmdataSharp
 		/// 利用中のUserAgent
 		/// </summary>
 		public string? UserAgent
-		{
-			get => HttpClient.DefaultRequestHeaders.GetValues("User-Agent")?.FirstOrDefault();
-		}
+			=> HttpClient.DefaultRequestHeaders.GetValues("User-Agent")?.FirstOrDefault();
 
 		/// <summary>
 		/// dmdataのAPIクライアントを初期化します
 		/// </summary>
 		/// <param name="apiKey">利用するAPIキー</param>
-		/// <param name="overrideUserAgent">使用する User-Agent 自身のソフトの名前にしておくことをおすすめします</param>
+		/// <param name="userAgent">使用する User-Agent 自身のソフトの名前にしてください</param>
 		/// <param name="timeout">タイムアウト時間</param>
-		public DmdataApiClient(string apiKey, string? overrideUserAgent = null, TimeSpan? timeout = null)
+		public DmdataV1ApiClient(string apiKey, string userAgent, TimeSpan? timeout = null)
 		{
 			HttpClient = new HttpClient() { Timeout = timeout ?? TimeSpan.FromMilliseconds(5000) };
 			ApiKey = apiKey ?? throw new ArgumentNullException(apiKey);
 
-			var currentAssemblyName = Assembly.GetExecutingAssembly().GetName();
-			var userAgent = overrideUserAgent ?? currentAssemblyName.Name + "/" + (currentAssemblyName.Version?.ToString() ?? "DEBUG");
-			HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
+			HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent ?? throw new ArgumentNullException(nameof(userAgent)));
 			Debug.WriteLine("[Dmdata] User-Agent: " + userAgent);
 		}
 
@@ -84,7 +80,7 @@ namespace DmdataSharp
 		/// <param name="get">WebSocketで取得する配信区分の配列</param>
 		/// <param name="memo">管理画面から表示できる識別文字</param>
 		/// <returns></returns>
-		public Task<SocketStartResponse> GetSocketStartAsync(IEnumerable<TelegramCategory> get, string? memo = null)
+		public Task<SocketStartResponse> GetSocketStartAsync(IEnumerable<TelegramCategoryV1> get, string? memo = null)
 			=> GetSocketStartAsync(string.Join(
 #if NET472 || NETSTANDARD2_0
 				",",
@@ -96,12 +92,13 @@ namespace DmdataSharp
 		/// <summary>
 		/// 電文リストを取得する
 		/// <para>telegram.list が必要です</para>
+		/// <para>ポーリングする場合は必ずnewCatchを使用してください！</para>
 		/// </summary>
 		/// <param name="type">検索する電文ヘッダ 前方一致</param>
 		/// <param name="xml">XML電文のControl/Headを表示するか</param>
 		/// <param name="showTest">訓練･試験等のテスト等電文を取得するか</param>
 		/// <param name="testOnly">訓練･試験等のテスト等電文のみ取得するか</param>
-		/// <param name="newCatch">前回のレスポンスの値を入れると前回以降の新しい情報のみを取得</param>
+		/// <param name="newCatch">前回のレスポンスの値を入れると前回以降の新しい情報のみを取得できる</param>
 		/// <param name="nextToken">前回のレスポンスの値を入れると前回以前の古い情報のみを取得</param>
 		/// <param name="limit">取得する電文数</param>
 		/// <returns>電文リスト情報</returns>
@@ -161,6 +158,22 @@ namespace DmdataSharp
 			{
 				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + url.Replace(ApiKey, "*API_KEY*"));
 			}
+		}
+		/// <summary>
+		/// 電文のstringを取得する
+		/// <para>各電文の種類に合わせた権限が必要です</para>
+		/// </summary>
+		/// <param name="telegramKey">取得する電文のID</param>
+		/// <param name="encoding">stringにする際のエンコード nullの場合UTF8</param>
+		/// <returns>レスポンスのStream</returns>
+		public async Task<string> GetTelegramStringAsync(string telegramKey, Encoding? encoding = null)
+		{
+			using var stream = await GetTelegramStreamAsync(telegramKey);
+			using var memoryStream = new MemoryStream();
+
+			await stream.CopyToAsync(memoryStream);
+
+			return (encoding ?? Encoding.UTF8).GetString(memoryStream.ToArray());
 		}
 
 		/// <summary>

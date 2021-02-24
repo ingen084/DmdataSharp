@@ -1,4 +1,5 @@
 ﻿using DmdataSharp.ApiResponses;
+using DmdataSharp.ApiResponses.V1;
 using DmdataSharp.Exceptions;
 using System;
 using System.IO;
@@ -8,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.WebSocketMessages
+namespace DmdataSharp.WebSocketMessages.V1
 {
 	/// <summary>
 	/// WebSocketから飛んでくるdataメッセージを表す
@@ -56,37 +57,37 @@ namespace DmdataSharp.WebSocketMessages
 		public bool Validate()
 		{
 			if (Body is null)
-				throw new DmdataException("APIレスポンスが正常にパースできていないためBodyの検証ができません");
+				throw new DmdataException("WebSocketメッセージが正常にパースできていないためBodyの検証ができません");
 			var result = new SHA384Managed().ComputeHash(Convert.FromBase64String(Body));
 			return string.Join("", result.Select(r => r.ToString("x2"))) == Key;
 		}
 		/// <summary>
-		/// bodyのStreamを取得します。
+		/// 展開処理などを行ったbodyのStreamを取得します。
 		/// <para>Disposeしてください！</para>
 		/// </summary>
 		/// <returns></returns>
 		public Stream GetBodyStream()
 		{
 			if (Body is null || Data is null)
-				throw new DmdataException("APIレスポンスが正常にパースできていないためBodyのStreamを取得できません");
+				throw new DmdataException("WebSocketメッセージが正常にパースできていないためBodyのStreamを取得できません");
 			var memStream = new MemoryStream(Convert.FromBase64String(Body));
 			if (!Data.Xml)
 				return memStream;
 			return new GZipStream(memStream, CompressionMode.Decompress);
 		}
 		/// <summary>
-		/// bodyのStreamを取得します。
-		/// <para>Disposeしてください！</para>
+		/// 展開処理などを行ったbodyを取得します。
 		/// </summary>
+		/// <param name="encoding">stringにする際のエンコード nullの場合UTF8</param>
 		/// <returns></returns>
-		public string GetBodyString()
+		public string GetBodyString(Encoding? encoding = null)
 		{
 			using var stream = GetBodyStream();
 			using var memoryStream = new MemoryStream();
 
-			stream.CopyToAsync(memoryStream);
+			stream.CopyTo(memoryStream);
 
-			return Encoding.UTF8.GetString(memoryStream.ToArray());
+			return (encoding ?? Encoding.UTF8).GetString(memoryStream.ToArray());
 		}
 	}
 }

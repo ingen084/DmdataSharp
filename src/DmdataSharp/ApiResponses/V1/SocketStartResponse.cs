@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses
+namespace DmdataSharp.ApiResponses.V1
 {
 	/// <summary>
 	/// SocketStartのレスポンス

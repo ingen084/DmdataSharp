@@ -5,7 +5,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// 配信区分
 	/// </summary>
-	public enum TelegramCategory
+	public enum TelegramCategoryV1
 	{
 		/// <summary>
 		/// 地震・津波関連
@@ -35,13 +35,13 @@ namespace DmdataSharp
 		/// </summary>
 		/// <param name="cat">変換元</param>
 		/// <returns></returns>
-		public static string ToParameterString(this TelegramCategory cat)
+		public static string ToParameterString(this TelegramCategoryV1 cat)
 			=> cat switch
 			{
-				TelegramCategory.Earthquake => "telegram.earthquake",
-				TelegramCategory.Volcano => "telegram.volcano",
-				TelegramCategory.Weather => "telegram.weather",
-				TelegramCategory.Scheduled => "telegram.scheduled",
+				TelegramCategoryV1.Earthquake => "telegram.earthquake",
+				TelegramCategoryV1.Volcano => "telegram.volcano",
+				TelegramCategoryV1.Weather => "telegram.weather",
+				TelegramCategoryV1.Scheduled => "telegram.scheduled",
 				_ => throw new ArgumentException("存在しないパラメータを変換しようとしました", nameof(cat)),
 			};
 	}

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DmdataSharp.WebSocketMessages
+namespace DmdataSharp.WebSocketMessages.V1
 {
 	/// <summary>
 	/// WebSocketのメッセージ

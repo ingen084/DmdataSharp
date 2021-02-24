@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses
+namespace DmdataSharp.ApiResponses.V1
 {
 	/// <summary>
 	/// dmdataのレスポンスを表す基底クラス

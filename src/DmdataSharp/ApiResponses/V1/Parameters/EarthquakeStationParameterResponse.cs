@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses.Parameters
+namespace DmdataSharp.ApiResponses.V1.Parameters
 {
 	/// <summary>
 	/// 震度観測点一覧APIのレスポンス

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses
+namespace DmdataSharp.ApiResponses.V1
 {
 	/// <summary>
 	/// dmdataへの課金･契約状況を表す

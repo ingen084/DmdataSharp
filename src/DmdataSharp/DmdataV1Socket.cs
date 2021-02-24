@@ -1,4 +1,4 @@
-﻿using DmdataSharp.WebSocketMessages;
+﻿using DmdataSharp.WebSocketMessages.V1;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,7 +14,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのWebSocketセッション
 	/// </summary>
-	public class DmdataSocket : IDisposable
+	public class DmdataV1Socket : IDisposable
 	{
 		/// <summary>
 		/// WebSocketへの接続が完了した
@@ -47,17 +47,50 @@ namespace DmdataSharp
 		private CancellationTokenSource? TokenSource { get; set; }
 		private Task? WebSocketConnectionTask { get; set; }
 		/// <summary>
+		/// こちらからPingを送るタイマー
+		/// </summary>
+		private Timer PingTimer { get; }
+		/// <summary>
+		/// 受信がなかった場合切断扱いにするタイマー
+		/// </summary>
+		private Timer WatchDogTimer { get; }
+		/// <summary>
 		/// 親となるAPIクライアント
 		/// </summary>
-		public DmdataApiClient ApiClient { get; }
+		public DmdataV1ApiClient ApiClient { get; }
 
 		/// <summary>
 		/// WebSocketインスタンスを初期化する
 		/// </summary>
 		/// <param name="apiClient">親となるAPIクライアント</param>
-		public DmdataSocket(DmdataApiClient apiClient)
+		public DmdataV1Socket(DmdataV1ApiClient apiClient)
 		{
 			ApiClient = apiClient;
+
+			WebSocket.Options.AddSubProtocol("jma.telegram");
+			PingTimer = new Timer(_ =>
+			{
+				if (!IsConnected)
+					return;
+				WebSocket.SendAsync(
+#if NET472 || NETSTANDARD2_0
+									new ArraySegment<byte>(
+#endif
+									JsonSerializer.SerializeToUtf8Bytes(new PingWebSocketMessage() { PingId = DateTime.Now.Ticks.ToString() })
+#if NET472 || NETSTANDARD2_0
+									)
+#endif
+									,
+					WebSocketMessageType.Text,
+					true,
+					TokenSource?.Token ?? CancellationToken.None);
+			}, null, Timeout.Infinite, Timeout.Infinite);
+			WatchDogTimer = new Timer(_ => 
+			{
+				if (!IsConnected)
+					return;
+				DisconnectAsync();
+			}, null, Timeout.Infinite, Timeout.Infinite);
 		}
 
 		/// <summary>
@@ -67,7 +100,7 @@ namespace DmdataSharp
 		/// <param name="memo">管理画面に表示するメモ</param>
 		/// <param name="test">訓練･試験を受け取るか</param>
 		/// <returns></returns>
-		public Task ConnectAsync(IEnumerable<TelegramCategory> get, string? memo = null, bool test = false)
+		public Task ConnectAsync(IEnumerable<TelegramCategoryV1> get, string? memo = null, bool test = false)
 			=> ConnectAsync(string.Join(
 #if NET472 || NETSTANDARD2_0
 				",",
@@ -102,10 +135,9 @@ namespace DmdataSharp
 				throw new InvalidOperationException("すでにWebSocketに接続されています");
 
 			TokenSource = new CancellationTokenSource();
-			await WebSocket.ConnectAsync(uri, TokenSource.Token);
 
-			// TODO: 無パケット時間が続くと切断する
-			WebSocketConnectionTask = Task.Run(async () =>
+			await WebSocket.ConnectAsync(uri, TokenSource.Token);
+			WebSocketConnectionTask = new Task(async () =>
 			{
 				try
 				{
@@ -124,7 +156,7 @@ namespace DmdataSharp
 						{
 							Debug.WriteLine("WebSocketが切断されました。");
 							await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "OK", TokenSource.Token);
-							Disconnected?.Invoke(this, null);
+							OnDisconnected();
 							return;
 						}
 
@@ -161,6 +193,10 @@ namespace DmdataSharp
 							ConnectionFull?.Invoke(this, null);
 							throw new Exception(messageString);
 						}
+
+						// 各種タイマーのリセット
+						PingTimer.Change(TimeSpan.FromMinutes(1), Timeout.InfiniteTimeSpan);
+						WatchDogTimer.Change(TimeSpan.FromMinutes(2), Timeout.InfiniteTimeSpan);
 
 						var message = JsonSerializer.Deserialize<DmdataWebSocketMessage>(messageString);
 						switch (message?.Type)
@@ -219,7 +255,18 @@ namespace DmdataSharp
 					await WebSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED", TokenSource.Token);
 					Disconnected?.Invoke(this, null);
 				}
-			});
+			}, TokenSource.Token, TaskCreationOptions.LongRunning);
+			WebSocketConnectionTask.Start();
+		}
+
+		/// <summary>
+		/// 切断イベントを呼ぶ
+		/// </summary>
+		private void OnDisconnected()
+		{
+			PingTimer.Change(Timeout.Infinite, Timeout.Infinite);
+			WatchDogTimer.Change(Timeout.Infinite, Timeout.Infinite);
+			Disconnected?.Invoke(this, null);
 		}
 
 		/// <summary>
