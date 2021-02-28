@@ -131,6 +131,29 @@ public string GetBodyString(Encoding? encoding = null)
 
 `GetBodyStream` にstringに変換する処理を追加したものです。
 
+##### XMLを解析するまでのサンプル
+
+GetTelegramを同じノリで取得できます
+
+```cs
+XDocument document;
+XmlNamespaceManager nsManager;
+
+using (var telegramStream = data.GetBodyStream())
+using (var reader = XmlReader.Create(telegramStream, new XmlReaderSettings { Async = true }))
+{
+	document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
+	nsManager = new XmlNamespaceManager(reader.NameTable);
+}
+nsManager.AddNamespace("jmx", "http://xml.kishou.go.jp/jmaxml1/");
+// 地震情報の場合以下の追記が必要
+// nsManager.AddNamespace("eb", "http://xml.kishou.go.jp/jmaxml1/body/seismology1/");
+// nsManager.AddNamespace("jmx_eb", "http://xml.kishou.go.jp/jmaxml1/elementBasis1/");
+
+// XPathを使用して電文のタイトルが取得できる
+var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title", nsManager)?.Value;
+```
+
 ### 3. 接続を開始する
 
 ```cs
@@ -160,3 +183,5 @@ APIをリクエストした際にタイムアウトしました。
 ### DmdataException
 
 上記の例外が継承している基底クラスです。
+
+また、ネットワークエラーの場合はその状況に合わせた例外が発生します。
