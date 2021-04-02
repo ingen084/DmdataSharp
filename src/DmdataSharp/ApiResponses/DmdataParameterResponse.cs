@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses.V1.Parameters
+namespace DmdataSharp.ApiResponses
 {
+#pragma warning disable CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
 	/// <summary>
 	/// dmdataのParameter APIレスポンスの共通部分を表す
 	/// </summary>
@@ -17,6 +18,6 @@ namespace DmdataSharp.ApiResponses.V1.Parameters
 		/// パラメータのバージョン
 		/// </summary>
 		[JsonPropertyName("version")]
-		public string? Version { get; set; }
+		public string Version { get; set; }
 	}
 }
