@@ -1,14 +1,13 @@
 ﻿using DmdataSharp.ApiResponses.V1;
 using DmdataSharp.ApiResponses.V1.Parameters;
+using DmdataSharp.Authentication;
 using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace DmdataSharp
@@ -16,13 +15,8 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのAPIクライアント
 	/// </summary>
-	public class DmdataV1ApiClient : IDisposable
+	public class DmdataV1ApiClient : DmdataApi
 	{
-		private HttpClient HttpClient { get; }
-		/// <summary>
-		/// 利用中のAPIキー
-		/// </summary>
-		public string ApiKey { get; set; }
 		/// <summary>
 		/// 利用中のUserAgent
 		/// </summary>
@@ -30,27 +24,28 @@ namespace DmdataSharp
 			=> HttpClient.DefaultRequestHeaders.GetValues("User-Agent")?.FirstOrDefault();
 
 		/// <summary>
-		/// dmdataのAPIクライアントを初期化します
+		/// dmdataのAPI V1クライアントを初期化します
 		/// </summary>
 		/// <param name="apiKey">利用するAPIキー</param>
 		/// <param name="userAgent">使用する User-Agent 自身のソフトの名前にしてください</param>
 		/// <param name="timeout">タイムアウト時間</param>
-		public DmdataV1ApiClient(string apiKey, string userAgent, TimeSpan? timeout = null)
-		{
-			HttpClient = new HttpClient() { Timeout = timeout ?? TimeSpan.FromMilliseconds(5000) };
-			ApiKey = apiKey ?? throw new ArgumentNullException(apiKey);
-
-			HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent ?? throw new ArgumentNullException(nameof(userAgent)));
-			Debug.WriteLine("[Dmdata] User-Agent: " + userAgent);
-		}
+		[Obsolete]
+		public DmdataV1ApiClient(string apiKey, string userAgent, TimeSpan? timeout = null) : base(apiKey, userAgent, timeout) { }
+		/// <summary>
+		/// dmdataのAPI V1クライアントを初期化します
+		/// </summary>
+		/// <param name="client">内部で使用するHttpClient</param>
+		/// <param name="authenticator">使用する認証</param>
+		public DmdataV1ApiClient(HttpClient client, Authenticator authenticator) : base(client, authenticator) { }
 
 		/// <summary>
 		/// 課金情報を取得する
 		/// <para>billing.get が必要です</para>
 		/// </summary>
 		/// <returns>課金情報</returns>
+		[Obsolete]
 		public Task<BillingResponse> GetBillingInfoAsync()
-			=> GetJsonObject<BillingResponse>($"https://api.dmdata.jp/billing/v1/get?key={ApiKey}");
+			=> GetJsonObject<BillingResponse>("https://api.dmdata.jp/billing/v1/get");
 
 		/// <summary>
 		/// WebSocketのURLを取得する
@@ -59,11 +54,11 @@ namespace DmdataSharp
 		/// <param name="get">WebSocketで取得する配信区分 コンマで区切る telegram.earthquakeなど</param>
 		/// <param name="memo">管理画面から表示できる識別文字</param>
 		/// <returns></returns>
+		[Obsolete]
 		public async Task<SocketStartResponse> GetSocketStartAsync(string get, string? memo = null)
 		{
 			var parameterMap = new Dictionary<string, string?>()
 			{
-				{ "key", ApiKey },
 				{ "get", get },
 			};
 			if (!string.IsNullOrWhiteSpace(memo))
@@ -80,6 +75,7 @@ namespace DmdataSharp
 		/// <param name="get">WebSocketで取得する配信区分の配列</param>
 		/// <param name="memo">管理画面から表示できる識別文字</param>
 		/// <returns></returns>
+		[Obsolete]
 		public Task<SocketStartResponse> GetSocketStartAsync(IEnumerable<TelegramCategoryV1> get, string? memo = null)
 			=> GetSocketStartAsync(string.Join(
 #if NET472 || NETSTANDARD2_0
@@ -102,6 +98,7 @@ namespace DmdataSharp
 		/// <param name="nextToken">前回のレスポンスの値を入れると前回以前の古い情報のみを取得</param>
 		/// <param name="limit">取得する電文数</param>
 		/// <returns>電文リスト情報</returns>
+		[Obsolete]
 		public async Task<TelegramListResponse> GetTelegramListAsync(
 			string? type = null,
 			bool xml = false,
@@ -112,10 +109,7 @@ namespace DmdataSharp
 			int limit = 100
 			)
 		{
-			var parameterMap = new Dictionary<string, string?>()
-			{
-				{ "key", ApiKey },
-			};
+			var parameterMap = new Dictionary<string, string?>();
 			if (!string.IsNullOrWhiteSpace(type))
 				parameterMap["type"] = type;
 			if (xml)
@@ -144,19 +138,20 @@ namespace DmdataSharp
 		/// <returns>レスポンスのStream</returns>
 		public async Task<Stream> GetTelegramStreamAsync(string telegramKey)
 		{
-			var url = $"https://data.api.dmdata.jp/v1/{telegramKey}?key={ApiKey}";
+			var url = $"https://data.api.dmdata.jp/v1/{telegramKey}";
 			try
 			{
-				var response = await HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				using var request = new HttpRequestMessage(HttpMethod.Get, url);
+				var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + url.Replace(ApiKey, "*API_KEY*"));
+					throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + Authenticator.FilterErrorMessage(url));
 				if (((int)response.StatusCode / 100) == 5)
 					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				return await response.Content.ReadAsStreamAsync();
 			}
 			catch (TaskCanceledException)
 			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + url.Replace(ApiKey, "*API_KEY*"));
+				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url));
 			}
 		}
 		/// <summary>
@@ -180,48 +175,16 @@ namespace DmdataSharp
 		/// 地震観測地点の情報を取得します
 		/// </summary>
 		/// <returns>地震観測地点の情報</returns>
+		[Obsolete]
 		public Task<EarthquakeStationParameterResponse> GetEarthquakeStationParameterAsync()
-			=> GetJsonObject<EarthquakeStationParameterResponse>($"https://api.dmdata.jp/parameters/v1/earthquake/station.json?key=" + ApiKey);
+			=> GetJsonObject<EarthquakeStationParameterResponse>("https://api.dmdata.jp/parameters/v1/earthquake/station.json");
 
 		/// <summary>
 		/// 津波観測地点の情報を取得します
 		/// </summary>
 		/// <returns>津波観測地点の情報</returns>
+		[Obsolete]
 		public Task<TsunamiStationParameterResponse> GetTsunamiStationParameterAsync()
-			=> GetJsonObject<TsunamiStationParameterResponse>($"https://api.dmdata.jp/parameters/v1/tsunami/station.json?key=" + ApiKey);
-
-		/// <summary>
-		/// GETリクエストを送信し、Jsonをデシリアライズした結果を取得します。
-		/// </summary>
-		/// <typeparam name="T">デシリアライズする型</typeparam>
-		/// <param name="url">使用するURL</param>
-		/// <returns></returns>
-		protected async Task<T> GetJsonObject<T>(string url)
-		{
-			try
-			{
-				using var response = await HttpClient.GetAsync(url);
-				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + url.Replace(ApiKey, "*API_KEY*")); // ApiKeyは秘匿情報のため出力を行なわない
-				if (((int)response.StatusCode / 100) == 5)
-					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
-				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is T r)
-					return r;
-				throw new DmdataException("APIレスポンスをパースできませんでした");
-			}
-			catch (TaskCanceledException)
-			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + url.Replace(ApiKey, "*API_KEY*")); // ApiKeyは秘匿情報のため出力を行なわない
-			}
-		}
-
-		/// <summary>
-		/// 内部のHttpClientを開放する
-		/// </summary>
-		public void Dispose()
-		{
-			HttpClient?.Dispose();
-			GC.SuppressFinalize(this);
-		}
+			=> GetJsonObject<TsunamiStationParameterResponse>("https://api.dmdata.jp/parameters/v1/tsunami/station.json");
 	}
 }
