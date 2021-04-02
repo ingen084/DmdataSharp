@@ -17,7 +17,7 @@ namespace DmdataSharp.ApiResponses.V2
 		/// WebSocketの接続情報
 		/// </summary>
 		[JsonPropertyName("websocket")]
-		public WebsocketInfo Websocket { get; set; }
+		public Info Websocket { get; set; }
 		/// <summary>
 		/// WebSocketで受け取る配信区分
 		/// </summary>
@@ -43,33 +43,33 @@ namespace DmdataSharp.ApiResponses.V2
 		/// </summary>
 		[JsonPropertyName("appName")]
 		public string? AppName { get; set; }
-	}
 
-	/// <summary>
-	/// WebSocketの接続情報
-	/// </summary>
-	public class WebsocketInfo
-	{
 		/// <summary>
-		/// WebSocket ID
+		/// WebSocketの接続情報
 		/// </summary>
-		[JsonPropertyName("id")]
-		public int Id { get; set; }
-		/// <summary>
-		/// WebSocketの接続先URLでticket付き
-		/// </summary>
-		[JsonPropertyName("url")]
-		public string Url { get; set; }
-		/// <summary>
-		/// WebSocketのProtocolで配列の要素は dmdata.v2 一つで固定
-		/// </summary>
-		[JsonPropertyName("protocol")]
-		public string[] Protocol { get; set; }
-		/// <summary>
-		/// キーの有効時間で単位は秒。値は 300 で固定
-		/// </summary>
-		[JsonPropertyName("expiration")]
-		public int Expiration { get; set; }
-	}
+		public class Info
+		{
+			/// <summary>
+			/// WebSocket ID
+			/// </summary>
+			[JsonPropertyName("id")]
+			public int Id { get; set; }
+			/// <summary>
+			/// WebSocketの接続先URLでticket付き
+			/// </summary>
+			[JsonPropertyName("url")]
+			public string Url { get; set; }
+			/// <summary>
+			/// WebSocketのProtocolで配列の要素は dmdata.v2 一つで固定
+			/// </summary>
+			[JsonPropertyName("protocol")]
+			public string[] Protocol { get; set; }
+			/// <summary>
+			/// キーの有効時間で単位は秒。値は 300 で固定
+			/// </summary>
+			[JsonPropertyName("expiration")]
+			public int Expiration { get; set; }
+		}
 
+	}
 }
