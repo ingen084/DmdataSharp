@@ -7,7 +7,7 @@ namespace DmdataSharp.ApiResponses.V2
 	/// <summary>
 	/// 電文リストの結果
 	/// </summary>
-	public class TelegramListResponse
+	public class TelegramListResponse : DmdataResponse
 	{
 		/// <summary>
 		/// 電文情報リスト
