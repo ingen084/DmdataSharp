@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace DmdataSharp.ApiResponses.V1
+namespace DmdataSharp.ApiResponses
 {
+#pragma warning disable CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
 	/// <summary>
 	/// dmdataのレスポンスを表す基底クラス
 	/// </summary>
@@ -12,7 +13,7 @@ namespace DmdataSharp.ApiResponses.V1
 		/// API処理ID
 		/// </summary>
 		[JsonPropertyName("responseId")]
-		public string? ResponseId { get; set; }
+		public string ResponseId { get; set; }
 		/// <summary>
 		/// API処理時刻
 		/// </summary>
@@ -23,7 +24,7 @@ namespace DmdataSharp.ApiResponses.V1
 		/// <para>"ok" or "error"</para>
 		/// </summary>
 		[JsonPropertyName("status")]
-		public string? Status { get; set; }
+		public string Status { get; set; }
 
 		/// <summary>
 		/// エラー内容
@@ -41,7 +42,7 @@ namespace DmdataSharp.ApiResponses.V1
 		/// エラーメッセージ
 		/// </summary>
 		[JsonPropertyName("message")]
-		public string? Message { get; set; }
+		public string Message { get; set; }
 		/// <summary>
 		/// HTTPステータスコード
 		/// </summary>

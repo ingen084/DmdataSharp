@@ -14,11 +14,15 @@ APIを叩くためのインスタンスを作成します。
 
 ```cs
 // using DmdataSharp;
-using var client = new DmdataV1ApiClient(apiKey, "アプリ名");
+using var client = DmdataApiClientBuilder.Default
+	.UseApiKey(apiKey)
+	.UserAgent("アプリ名")
+	.Referrer(new Uri("リファラにいれるURL"))
+	.BuildV2ApiClient();
 ```
 
-v1系のAPIは `DmdataV1ApiClient` から利用できます。  
-コンストラクタの第1引数にはAPIキーを、 **第2引数には自分のアプリ名を入力してください。(APIリクエスト時のUser-Agentになります)**
+Builderでクライアントを組み立てる方式になりました。  
+`UseApiKey` は必須ですが、 `UserAgent` `Referrer` は指定しなくても動作させることが可能です。
 
 ### 2. 電文リスト取得する
 
@@ -31,19 +35,19 @@ var telegramList = await client.GetTelegramListAsync(limit: 10);
 
 #### 注意
 
-**ポーリングする場合は必ずnewCatchオプションを使用しましょう。**
+**ポーリングする場合は必ず `cursorToken` オプションを使用しましょう。**
 
 ### 3. 電文を取得する
 
 ```cs
-using var stream = await client.GetTelegramStreamAsync(key);
+using var stream = await client.GetTelegramStreamAsync(id);
 ```
 
 keyに取得する電文のKeyパラメータを指定します。これでStreamインスタンスが取得可能です。  
 メモリ消費削減のためStreamをそのまま返しているため、usingもしくはDisposeを忘れないようにしましょう。
 
 ```cs
-var telegramString = await client.GetTelegramStringAsync(key);
+var telegramString = await client.GetTelegramStringAsync(id);
 ```
 
 Streamの扱いがめんどくさい人向けにstringに変換する処理を追加したメソッドもあります。
@@ -54,7 +58,7 @@ Streamの扱いがめんどくさい人向けにstringに変換する処理を�
 XDocument document;
 XmlNamespaceManager nsManager;
 
-using (var telegramStream = await ApiClient.GetTelegramStreamAsync("電文のKey"))
+using (var telegramStream = await ApiClient.GetTelegramStreamAsync("電文のId"))
 using (var reader = XmlReader.Create(telegramStream, new XmlReaderSettings { Async = true }))
 {
 	document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
@@ -74,7 +78,7 @@ var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title"
 ### 1. クライアントインスタンスを作成する
 
 ```cs
-using var socket = new DmdataV1Socket(client);
+using var socket = new DmdataV2Socket(client);
 ```
 
 1で作成したAPIクライアントを引数にソケットのインスタンスを作成します。
@@ -89,7 +93,7 @@ socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
 socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
 socket.DataReceived += (s, e) =>
 {
-	Console.WriteLine($@"EVENT: data  type: {e.Data.Type} key: {e.Key} valid: {e.Validate()} body: {e.GetBodyString().Substring(0, 20)}...");
+	Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()} body: {e.GetBodyString().Substring(0, 20)}...");
 };
 ```
 
@@ -131,23 +135,49 @@ public string GetBodyString(Encoding? encoding = null)
 
 `GetBodyStream` にstringに変換する処理を追加したものです。
 
+##### XMLを解析するまでのサンプル
+
+GetTelegramを同じノリで取得できます
+
+```cs
+XDocument document;
+XmlNamespaceManager nsManager;
+
+using (var telegramStream = data.GetBodyStream())
+using (var reader = XmlReader.Create(telegramStream, new XmlReaderSettings { Async = true }))
+{
+	document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
+	nsManager = new XmlNamespaceManager(reader.NameTable);
+}
+nsManager.AddNamespace("jmx", "http://xml.kishou.go.jp/jmaxml1/");
+// 地震情報の場合以下の追記が必要
+// nsManager.AddNamespace("eb", "http://xml.kishou.go.jp/jmaxml1/body/seismology1/");
+// nsManager.AddNamespace("jmx_eb", "http://xml.kishou.go.jp/jmaxml1/elementBasis1/");
+
+// XPathを使用して電文のタイトルが取得できる
+var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title", nsManager)?.Value;
+```
+
 ### 3. 接続を開始する
 
 ```cs
-await socket.ConnectAsync(new[]
-{
+await socket.ConnectAsync(new SocketStartRequestParameter(
 	TelegramCategoryV1.Earthquake,
 	TelegramCategoryV1.Scheduled,
 	TelegramCategoryV1.Volcano,
-	TelegramCategoryV1.Weather,
-}, "名前");
+	TelegramCategoryV1.Weather
+)
+{
+	AppName = "アプリ名",
+});
 ```
 
-第1引数には受信したい情報のカテゴリを、第2引数には管理画面の `状況` ページで表示される `メモ` の指定が行なえます。(文字数制限に注意)
+`SocketStartRequestParameter` の引数には受信したい情報のカテゴリを、 `AppName` は管理画面の `状況` ページで表示される `メモ` の指定が行なえます。(文字数制限に注意)  
+その他にも `Types` で電文のフィルタなども行えますのでご活用ください。
 
 ## 発生する例外について
 
-これらの例外はメッセージにAPIキーが含まれている場合文字の置き換えを行います。
+APIキー認証の場合、メッセージにAPIキーが含まれている場合文字の置き換えを行います。
 
 ### DmdataForbiddenException
 
@@ -159,4 +189,7 @@ APIをリクエストした際にタイムアウトしました。
 
 ### DmdataException
 
-上記の例外が継承している基底クラスです。
+上記の例外が継承している基底クラスです。  
+いくつかのエラーで使用されています。
+
+また、ネットワークエラーの場合はその状況に合わせた例外が発生します。

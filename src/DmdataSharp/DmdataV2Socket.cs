@@ -1,5 +1,6 @@
-﻿using DmdataSharp.WebSocketMessages;
-using DmdataSharp.WebSocketMessages.V1;
+﻿using DmdataSharp.ApiParameters.V2;
+using DmdataSharp.WebSocketMessages;
+using DmdataSharp.WebSocketMessages.V2;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,10 +14,9 @@ using System.Threading.Tasks;
 namespace DmdataSharp
 {
 	/// <summary>
-	/// dmdataのWebSocketセッション
+	/// dmdataのWebSocket V2セッション
 	/// </summary>
-	[Obsolete]
-	public class DmdataV1Socket : IDisposable
+	public class DmdataV2Socket : IDisposable
 	{
 		/// <summary>
 		/// WebSocketへの接続が完了した
@@ -34,10 +34,6 @@ namespace DmdataSharp
 		/// dataメッセージが飛んできた
 		/// </summary>
 		public event EventHandler<DataWebSocketMessage?>? DataReceived;
-		/// <summary>
-		/// WebSocketの接続数がオーバーしている
-		/// </summary>
-		public event EventHandler<EventArgs?>? ConnectionFull;
 
 		/// <summary>
 		/// WebSocketに接続中かどうか
@@ -59,18 +55,17 @@ namespace DmdataSharp
 		/// <summary>
 		/// 親となるAPIクライアント
 		/// </summary>
-		public DmdataV1ApiClient ApiClient { get; }
+		public DmdataV2ApiClient ApiClient { get; }
 
 		/// <summary>
 		/// WebSocketインスタンスを初期化する
 		/// </summary>
 		/// <param name="apiClient">親となるAPIクライアント</param>
-		[Obsolete]
-		public DmdataV1Socket(DmdataV1ApiClient apiClient)
+		public DmdataV2Socket(DmdataV2ApiClient apiClient)
 		{
 			ApiClient = apiClient;
 
-			WebSocket.Options.AddSubProtocol("jma.telegram");
+			WebSocket.Options.AddSubProtocol("dmdata.v2");
 			PingTimer = new Timer(_ =>
 			{
 				if (!IsConnected)
@@ -99,33 +94,16 @@ namespace DmdataSharp
 		/// <summary>
 		/// WebSocketに接続する
 		/// </summary>
-		/// <param name="get">受信する受信区分</param>
-		/// <param name="memo">管理画面に表示するメモ</param>
-		/// <param name="test">訓練･試験を受け取るか</param>
+		/// <param name="param">ソケット開始</param>
 		/// <returns></returns>
-		public Task ConnectAsync(IEnumerable<TelegramCategoryV1> get, string? memo = null, bool test = false)
-			=> ConnectAsync(string.Join(
-#if NET472 || NETSTANDARD2_0
-				",",
-#else
-				',',
-#endif
-				get.Select(g => g.ToParameterString())), memo, test);
-		/// <summary>
-		/// WebSocketに接続する
-		/// </summary>
-		/// <param name="get">受信する受信区分</param>
-		/// <param name="memo">管理画面に表示するメモ</param>
-		/// <param name="test">訓練･試験を受け取るか</param>
-		/// <returns></returns>
-		public async Task ConnectAsync(string get, string? memo = null, bool test = false)
+		public async Task ConnectAsync(SocketStartRequestParameter param)
 		{
 			if (IsConnected)
 				throw new InvalidOperationException("すでにWebSocketに接続されています");
 
-			var resp = await ApiClient.GetSocketStartAsync(get, memo);
+			var resp = await ApiClient.GetSocketStartAsync(param);
 			TokenSource = new CancellationTokenSource();
-			await ConnectAsync(new Uri(resp.Url + (test ? "&test=true" : "")));
+			await ConnectAsync(new Uri(resp.Websocket.Url));
 		}
 		/// <summary>
 		/// WebSocketに接続する
@@ -188,19 +166,12 @@ namespace DmdataSharp
 							length += result.Count;
 						}
 
-						var messageString = Encoding.UTF8.GetString(buffer, 0, length);
-						// 接続数オーバーのチェック
-						if (messageString == "The maximum number of simultaneous connections is full.")
-						{
-							Debug.WriteLine(messageString);
-							ConnectionFull?.Invoke(this, null);
-							throw new Exception(messageString);
-						}
-
 						// 各種タイマーのリセット
 						PingTimer.Change(TimeSpan.FromMinutes(1), Timeout.InfiniteTimeSpan);
 						WatchDogTimer.Change(TimeSpan.FromMinutes(2), Timeout.InfiniteTimeSpan);
 
+						var messageString = Encoding.UTF8.GetString(buffer, 0, length);
+						Debug.WriteLine("resv: " + messageString);
 						var message = JsonSerializer.Deserialize<DmdataWebSocketMessage>(messageString);
 						switch (message?.Type)
 						{
@@ -217,7 +188,7 @@ namespace DmdataSharp
 								Debug.WriteLine("エラーメッセージを受信しました。");
 								Error?.Invoke(this, errorMessage);
 								// 切断の場合はそのまま切断する
-								if (errorMessage?.Action == "close")
+								if (errorMessage?.Close ?? false)
 								{
 									Debug.WriteLine("切断要求のため切断扱いとします。");
 									await WebSocket.CloseAsync(WebSocketCloseStatus.Empty, null, TokenSource.Token);
@@ -231,7 +202,6 @@ namespace DmdataSharp
 							// pongを返す
 							case "ping":
 								var pingMessage = JsonSerializer.Deserialize<PingWebSocketMessage>(messageString);
-								Debug.WriteLine("pingId: " + pingMessage?.PingId);
 								await WebSocket.SendAsync(
 #if NET472 || NETSTANDARD2_0
 									new ArraySegment<byte>(

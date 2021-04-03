@@ -1,5 +1,4 @@
-﻿using DmdataSharp.ApiResponses;
-using DmdataSharp.ApiResponses.V1;
+﻿using DmdataSharp.ApiResponses.V1;
 using DmdataSharp.Exceptions;
 using System;
 using System.IO;

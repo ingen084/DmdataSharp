@@ -1,4 +1,5 @@
 ﻿using DmdataSharp;
+using DmdataSharp.ApiParameters.V2;
 using DmdataSharp.Exceptions;
 using System;
 using System.Linq;
@@ -15,21 +16,23 @@ namespace Tests
 			if (string.IsNullOrWhiteSpace(apiKey))
 				apiKey = Environment.GetEnvironmentVariable("DMDATA_APIKEY");
 
-			using var client = new DmdataV1ApiClient(apiKey, "DmdataSharp;Example");
+			using var client = DmdataApiClientBuilder.Default
+				.UseApiKey(apiKey)
+				.UserAgent("DmdataSharp;Example")
+				.Referrer(new Uri("http://ingen084.net/"))
+				.BuildV2ApiClient();
 
 			try
 			{
-				// 課金情報を取得
-				var billingInfo = await client.GetBillingInfoAsync();
-				Console.WriteLine(@$"** 課金情報({billingInfo.Date:yyyy年MM月}) **
-今月の課金状況（本日まで）: {billingInfo.Amount.Total}
+				// 契約情報を取得
+				var contractInfo = await client.GetContractListAsync();
+				Console.WriteLine(@$"** 契約情報 **
 *課金明細
-{string.Join('\n', billingInfo.Items.Select(i => $"  {i.Name}({i.Type}) {i.Subtotal}円"))}
-未払い残高: {billingInfo.Unpaid}");
+{string.Join('\n', contractInfo.Items.Select(i => $"  {i.ClassificationName}({i.Classification}) {i.Price.Day}円/日(最大{i.Price.Month}円/月)"))}");
 			}
 			catch (DmdataForbiddenException)
 			{
-				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 billing.get 権限が必要です。");
+				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 contract.list 権限が必要です。");
 			}
 			Console.WriteLine();
 			try
@@ -39,8 +42,8 @@ namespace Tests
 				Console.WriteLine($"** 電文リスト **\n");
 				foreach (var item in telegramList.Items)
 				{
-					Console.WriteLine($@"** {item.Data.Type}
-  Key: {item.Key}");
+					Console.WriteLine($@"** {item.Head.Type}
+  Key: {item.Id}");
 				}
 			}
 			catch (DmdataForbiddenException)
@@ -50,22 +53,24 @@ namespace Tests
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
-			using var socket = new DmdataV1Socket(client);
+			using var socket = new DmdataV2Socket(client);
 			socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
 			socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
 			socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
 			socket.DataReceived += (s, e) =>
 			{
-				Console.WriteLine($@"EVENT: data  type: {e.Data.Type} key: {e.Key} valid: {e.Validate()}
+				Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
       body: {e.GetBodyString().Substring(0, 20)}...");
 			};
-			await socket.ConnectAsync(new[]
-			{
+			await socket.ConnectAsync(new SocketStartRequestParameter(
 				TelegramCategoryV1.Earthquake,
 				TelegramCategoryV1.Scheduled,
 				TelegramCategoryV1.Volcano,
-				TelegramCategoryV1.Weather,
-			}, "DmdataSharp;Example");
+				TelegramCategoryV1.Weather
+			)
+			{
+				AppName = "DmdataSharp;Example",
+			});
 
 			Console.ReadLine();
 			await socket.DisconnectAsync();
