@@ -76,7 +76,7 @@ namespace DmdataSharp
 			if (!string.IsNullOrWhiteSpace(type))
 				parameterMap["type"] = type;
 			if (xmlReport)
-				parameterMap["xml"] = "true";
+				parameterMap["xmlReport"] = "true";
 			if (test != "no")
 				parameterMap["test"] = "true";
 			if (!string.IsNullOrWhiteSpace(cursorToken))

@@ -7,7 +7,7 @@ namespace DmdataSharp.ApiResponses.V2
 	/// <summary>
 	/// 電文リストの結果
 	/// </summary>
-	public class TelegramListResponse
+	public class TelegramListResponse : DmdataResponse
 	{
 		/// <summary>
 		/// 電文情報リスト
@@ -55,6 +55,11 @@ namespace DmdataSharp.ApiResponses.V2
 			/// </summary>
 			[JsonPropertyName("head")]
 			public Head Head { get; set; }
+			/// <summary>
+			/// 受信時刻
+			/// </summary>
+			[JsonPropertyName("receiveTime")]
+			public DateTime ReceiveTime { get; set; }
 			/// <summary>
 			/// XML電文Control,Head情報
 			/// </summary>

@@ -21,7 +21,7 @@ namespace DmdataSharp
 		/// <summary>
 		/// dmdataのAPI認証方法
 		/// </summary>
-		protected Authenticator Authenticator { get; }
+		public Authenticator Authenticator { get; set; }
 
 		/// <summary>
 		/// 指定したHttpClient･認証方法で初期化する

@@ -25,7 +25,7 @@ namespace DmdataSharp.WebSocketMessages.V2
 		/// エラーコード
 		/// </summary>
 		[JsonPropertyName("code")]
-		public string Code { get; set; }
+		public int Code { get; set; }
 		/// <summary>
 		/// 行動内容
 		/// <para>trueの場合は切断される</para>
