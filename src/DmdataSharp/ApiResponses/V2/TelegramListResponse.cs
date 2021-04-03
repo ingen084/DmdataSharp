@@ -56,6 +56,11 @@ namespace DmdataSharp.ApiResponses.V2
 			[JsonPropertyName("head")]
 			public Head Head { get; set; }
 			/// <summary>
+			/// 受信時刻
+			/// </summary>
+			[JsonPropertyName("receiveTime")]
+			public DateTime ReceiveTime { get; set; }
+			/// <summary>
 			/// XML電文Control,Head情報
 			/// </summary>
 			[JsonPropertyName("xmlReport")]
