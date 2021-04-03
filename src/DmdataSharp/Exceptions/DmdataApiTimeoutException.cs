@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace DmdataSharp.Exceptions
+﻿namespace DmdataSharp.Exceptions
 {
 	/// <summary>
 	/// dmdataへのリクエストにタイムアウトした例外

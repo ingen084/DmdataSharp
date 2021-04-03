@@ -1,6 +1,7 @@
 ﻿using DmdataSharp.Authentication;
 using DmdataSharp.Exceptions;
 using System;
+using System.Net;
 using System.Net.Http;
 
 namespace DmdataSharp
@@ -20,7 +21,17 @@ namespace DmdataSharp
 		/// <para></para>
 		/// </summary>
 		public static DmdataApiClientBuilder Default
-			=> new(new HttpClient() { Timeout = TimeSpan.FromMilliseconds(5000) });
+			=> new(new HttpClient(new HttpClientHandler()
+			{
+#if NET472 || NETSTANDARD2_0
+				AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+#else
+				AutomaticDecompression = DecompressionMethods.All
+#endif
+			})
+			{
+				Timeout = TimeSpan.FromMilliseconds(5000)
+			});
 
 		private HttpClient HttpClient { get; set; }
 		private Authenticator? Authenticator { get; set; }
@@ -102,11 +113,11 @@ namespace DmdataSharp
 		/// API V2クライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V2クライアントのインスタンス</returns>
-		public DmdataV1ApiClient BuildV2ApiClient()
+		public DmdataV2ApiClient BuildV2ApiClient()
 		{
 			if (Authenticator is null)
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			return new DmdataV1ApiClient(HttpClient, Authenticator);
+			return new DmdataV2ApiClient(HttpClient, Authenticator);
 		}
 	}
 }
