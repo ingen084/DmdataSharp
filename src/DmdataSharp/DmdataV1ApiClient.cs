@@ -63,10 +63,7 @@ namespace DmdataSharp
 			};
 			if (!string.IsNullOrWhiteSpace(memo))
 				parameterMap["memo"] = memo;
-
-#pragma warning disable CS8620 // FormUrlEncodedContentが <string?, string?> を要求しているがDictionaryのKeyはNotNullのため警告回避
 			return await GetJsonObject<SocketStartResponse>($"https://api.dmdata.jp/socket/v1/start?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 		}
 		/// <summary>
 		/// WebSocketのURLを取得する
@@ -124,10 +121,7 @@ namespace DmdataSharp
 				parameterMap["nextToken"] = nextToken;
 			if (limit != 100)
 				parameterMap["limit"] = limit.ToString();
-
-#pragma warning disable CS8620 // FormUrlEncodedContentが <string?, string?> を要求しているがDictionaryのKeyはNotNullのため警告回避
 			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/telegram/v1/list?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 		}
 		/// <summary>
 		/// 電文のStreamを取得する
