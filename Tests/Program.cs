@@ -53,27 +53,53 @@ namespace Tests
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
-			using var socket = new DmdataV2Socket(client);
-			socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
-			socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
-			socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
-			socket.DataReceived += (s, e) =>
 			{
-				Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
+				var socket = new DmdataV2Socket(client);
+				socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
+				socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
+				socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
+				socket.DataReceived += (s, e) =>
+				{
+					Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
       body: {e.GetBodyString().Substring(0, 20)}...");
-			};
-			await socket.ConnectAsync(new SocketStartRequestParameter(
-				TelegramCategoryV1.Earthquake,
-				TelegramCategoryV1.Scheduled,
-				TelegramCategoryV1.Volcano,
-				TelegramCategoryV1.Weather
-			)
-			{
-				AppName = "DmdataSharp;Example",
-			});
+				};
+				await socket.ConnectAsync(new SocketStartRequestParameter(
+					TelegramCategoryV1.Earthquake,
+					TelegramCategoryV1.Scheduled,
+					TelegramCategoryV1.Volcano,
+					TelegramCategoryV1.Weather
+				)
+				{
+					AppName = "DmdataSharp;Example",
+				});
 
+				Console.ReadLine();
+				await socket.DisconnectAsync();
+			}
 			Console.ReadLine();
-			await socket.DisconnectAsync();
+			{
+				var socket = new DmdataV2Socket(client);
+				socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
+				socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
+				socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
+				socket.DataReceived += (s, e) =>
+				{
+					Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
+      body: {e.GetBodyString().Substring(0, 20)}...");
+				};
+				await socket.ConnectAsync(new SocketStartRequestParameter(
+					TelegramCategoryV1.Earthquake,
+					TelegramCategoryV1.Scheduled,
+					TelegramCategoryV1.Volcano,
+					TelegramCategoryV1.Weather
+				)
+				{
+					AppName = "DmdataSharp;Example",
+				});
+
+				Console.ReadLine();
+				await socket.DisconnectAsync();
+			}
 		}
 	}
 }
