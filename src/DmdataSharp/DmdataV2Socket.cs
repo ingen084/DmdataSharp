@@ -39,7 +39,7 @@ namespace DmdataSharp
 		/// WebSocketに接続中かどうか
 		/// <para>Connectedイベントが発生する前のコネクション確立時にtrueになる</para>
 		/// </summary>
-		public bool IsConnected => WebSocket?.State == WebSocketState.Connecting;
+		public bool IsConnected => WebSocket.State == WebSocketState.Open;
 
 		private ClientWebSocket WebSocket { get; } = new ClientWebSocket();
 		private CancellationTokenSource? TokenSource { get; set; }
@@ -56,6 +56,10 @@ namespace DmdataSharp
 		/// 親となるAPIクライアント
 		/// </summary>
 		public DmdataV2ApiClient ApiClient { get; }
+		/// <summary>
+		/// WebSocketが切断済みかどうかを取得する
+		/// </summary>
+		public bool IsDisposed { get; private set; }
 
 		/// <summary>
 		/// WebSocketインスタンスを初期化する
@@ -83,7 +87,7 @@ namespace DmdataSharp
 					true,
 					TokenSource?.Token ?? CancellationToken.None);
 			}, null, Timeout.Infinite, Timeout.Infinite);
-			WatchDogTimer = new Timer(_ => 
+			WatchDogTimer = new Timer(_ =>
 			{
 				if (!IsConnected)
 					return;
@@ -136,7 +140,7 @@ namespace DmdataSharp
 						if (result.MessageType == WebSocketMessageType.Close)
 						{
 							Debug.WriteLine("WebSocketが切断されました。");
-							await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "OK", TokenSource.Token);
+							await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, TokenSource.Token);
 							OnDisconnected();
 							return;
 						}
@@ -220,14 +224,15 @@ namespace DmdataSharp
 				}
 				catch (TaskCanceledException)
 				{
-					await WebSocket.CloseAsync(WebSocketCloseStatus.Empty, "GOOD BYE", TokenSource.Token);
-					Disconnected?.Invoke(this, null);
+					if (IsConnected)
+						await WebSocket.CloseAsync(WebSocketCloseStatus.Empty, null, TokenSource.Token);
+					OnDisconnected();
 				}
 				catch (Exception ex)
 				{
 					Debug.WriteLine("WebSocket受信スレッドで例外が発生しました\n" + ex);
 					await WebSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED", TokenSource.Token);
-					Disconnected?.Invoke(this, null);
+					OnDisconnected();
 				}
 			}, TokenSource.Token, TaskCreationOptions.LongRunning);
 			WebSocketConnectionTask.Start();
@@ -238,6 +243,7 @@ namespace DmdataSharp
 		/// </summary>
 		private void OnDisconnected()
 		{
+			IsDisposed = true;
 			PingTimer.Change(Timeout.Infinite, Timeout.Infinite);
 			WatchDogTimer.Change(Timeout.Infinite, Timeout.Infinite);
 			Disconnected?.Invoke(this, null);
@@ -249,7 +255,7 @@ namespace DmdataSharp
 		/// <returns></returns>
 		public Task? DisconnectAsync()
 		{
-			if (!IsConnected)
+			if (!IsConnected || WebSocketConnectionTask == null)
 				return Task.CompletedTask;
 			TokenSource?.Cancel();
 			return WebSocketConnectionTask;
@@ -260,7 +266,8 @@ namespace DmdataSharp
 		/// </summary>
 		public void Dispose()
 		{
-			WebSocket.Dispose();
+			if (!IsDisposed)
+				WebSocket.Dispose();
 			GC.SuppressFinalize(this);
 		}
 	}
