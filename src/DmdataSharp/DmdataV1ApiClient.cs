@@ -143,15 +143,20 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
 				var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
-				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + Authenticator.FilterErrorMessage(url));
-				if (((int)response.StatusCode / 100) == 5)
-					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
-				return await response.Content.ReadAsStreamAsync();
+				return response.StatusCode switch
+				{
+					System.Net.HttpStatusCode.Forbidden
+						=> throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + Authenticator.FilterErrorMessage(url)),
+					System.Net.HttpStatusCode.Unauthorized
+						=> throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url)),
+					System.Net.HttpStatusCode s when ((int)s / 100) == 5
+						=> throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode),
+					_ => await response.Content.ReadAsStreamAsync(),
+				};
 			}
 			catch (TaskCanceledException)
 			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url));
+				throw new DmdataApiTimeoutException("リクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url));
 			}
 		}
 		/// <summary>
