@@ -179,9 +179,14 @@ await socket.ConnectAsync(new SocketStartRequestParameter(
 
 APIキー認証の場合、メッセージにAPIキーが含まれている場合文字の置き換えを行います。
 
+### DmdataUnauthorizedException
+
+認証情報が不正です。
+
 ### DmdataForbiddenException
 
-APIキーが不正か、指定された機能を利用するための権限が足りていません。
+認証情報が不正です。  
+APIv1の場合はAPIキーが不正な場合もこの例外が発生します。
 
 ### DmdataApiTimeoutException
 
