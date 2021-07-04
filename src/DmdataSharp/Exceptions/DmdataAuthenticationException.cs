@@ -3,15 +3,15 @@
 namespace DmdataSharp.Exceptions
 {
 	/// <summary>
-	/// dmdataに関連する例外
+	/// dmdataの認証に関する例外
 	/// </summary>
-	public class DmdataException : Exception
+	public class DmdataAuthenticationException : DmdataException
 	{
 		/// <summary>
 		/// 例外を初期化する
 		/// </summary>
 		/// <param name="message"></param>
-		public DmdataException(string message) : base(message)
+		public DmdataAuthenticationException(string message) : base(message)
 		{
 		}
 		/// <summary>
@@ -19,7 +19,7 @@ namespace DmdataSharp.Exceptions
 		/// </summary>
 		/// <param name="message"></param>
 		/// <param name="innerException"></param>
-		public DmdataException(string message, Exception innerException) : base(message, innerException)
+		public DmdataAuthenticationException(string message, Exception innerException) : base(message, innerException)
 		{
 		}
 	}

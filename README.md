@@ -8,23 +8,109 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 
 実装する際は必ずDM-D.S.Sのドキュメントを読みながら進めてください。
 
-### 1. インスタンスを初期化する
+### 1. OAuthクライアントを作成する
+
+![img1](https://gyazo.ingen084.net/data/c74a6942c776dc7508d5901f10a98508.png)  
+DM-D.S.Sの管理画面からOAuthクライアントを作成します。
+
+![img2](https://gyazo.ingen084.net/data/0572a77450eb79c8c6b79a84e42bfd34.png)  
+各項目を埋めます。注意点としては、
+
+- リダイレクトURIは `http://localhost:{好きなポート}/` を設定してください。
+  - 認証処理を記述する際に使用します。
+- **URIは厳密に判定されており、大文字が使用できません。**
+- 認証周りについては以下のように設定してください。
+  - クライアントの種類: `公開`
+    - 現状このライブラリは認可コードフロー+機密クライアントに対応していません。
+  - 使用するフロー: `認可コードフロー/リフレッシュトークンフロー`
+
+
+### 2. インスタンスを初期化する
 
 APIを叩くためのインスタンスを作成します。
+まずはBuilderを作成し、UserAgentなどを設定しておきます(任意)。
 
 ```cs
 // using DmdataSharp;
-using var client = DmdataApiClientBuilder.Default
-	.UseApiKey(apiKey)
-	.UserAgent("アプリ名")
-	.Referrer(new Uri("リファラにいれるURL"))
-	.BuildV2ApiClient();
+var builder = DmdataApiClientBuilder.Default
+    .UserAgent("アプリ名")
+    .Referrer(new Uri("リファラにいれるURL"));
 ```
 
-Builderでクライアントを組み立てる方式になりました。  
-`UseApiKey` は必須ですが、 `UserAgent` `Referrer` は指定しなくても動作させることが可能です。
+### 3. 認可を求める
 
-### 2. 電文リスト取得する
+**リフレッシュトークンを保存した場合、この手順はスキップすることができます。**
+
+1で作成したOAuthクライアントIDと許可を求めたい(呼びたいAPIが該当する)スコープを `SimpleOAuthAuthorizaticator.AuthorizationAsync` に渡して各種トークン(資格情報)の取得を行います。
+
+```cs
+// using DmdataSharp.Authentication.OAuth;
+var clientId = "クライアントID";
+var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
+try
+{
+    // 認可を得る
+    var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthorizaticator.AuthorizationAsync(
+        builder.HttpClient,
+        clientId,
+        scopes,
+        "DmdataSharp サンプルアプリケーション",
+        url => Process.Start(url),
+        "http://localhost:14190/",
+        TimeSpan.FromMinutes(10));
+
+    // 得た資格情報を登録する(4の内容)
+    builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+}
+catch (Exception ex)
+{
+    Console.WriteLine("認証に失敗しました\n" + ex);
+    return;
+}
+```
+
+`AuthorizationAsync` の解説をしておきます。
+
+```cs
+Task<(string refleshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
+    HttpClient client,      // 内部でAPIを呼ぶ際に使用するHttpClient 今回はBuilderで作成したHttpClientを使用します
+    string clientId,        // OAuthクライアントID
+    string[] scopes,        // 認可を求めるスコープ
+    string title,           // 認可時にブラウザ上に表示されるアプリケーション名
+    Action<string> openUrl, // URLが求められた際にブラウザを開くためのデリゲート
+    string listenPrefix,    // 内部でホストするHTTPサーバーのオプション 1で設定するリダイレクトURIと同じにしてください
+    TimeSpan timeout)       // 認可･戻るボタンが押されなかった場合失敗扱いにするまでの時間
+```
+
+#### 内部でホストするHTTPサーバーについて
+
+この認可フローはWebブラウザを使用した方式であるため、認可ボタンを押した後ライブラリ内で建てたHTTPサーバーにリダイレクトすることでトークンの取得を行います。  
+ファイアウォールの確認画面が表示されてしまうため、基本 `localhost` でポートもなるべく大きなもの(10000以上)を使用してください。外部に何かを公開してしまうというものではありません。
+
+### 4. 資格情報を登録する
+
+作成していたBuilderに3で取得した資格情報の登録を行います(3のコード内に含まれています)。  
+リフレッシュトークンは長期間使用することができるため、起動のたびにブラウザを開かないようにするためにも、アプリケーションに組み込むときは保存しておくとよいでしょう。  
+
+```cs
+builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+```
+
+`accessToken` `accessTokenExpires` は必須ではありません(API実行時に自動で更新されます)。
+
+### 5. APIクライアントを作成する
+
+`BuildV2ApiClient` でAPIクライアントを作成します。
+
+```cs
+using var client = builder.BuildV2ApiClient();
+```
+
+これで各種APIが呼べるようになりました。
+
+**Disposeにアクセストークンの失効が含まれているため、アプリケーションの終了時などにDisposeを忘れないようにしましょう**。
+
+### 6. 電文リストを取得する
 
 ```cs
 var telegramList = await client.GetTelegramListAsync(limit: 10);
@@ -37,7 +123,7 @@ var telegramList = await client.GetTelegramListAsync(limit: 10);
 
 **ポーリングする場合は必ず `cursorToken` オプションを使用しましょう。**
 
-### 3. 電文を取得する
+### 7. 電文を取得する
 
 ```cs
 using var stream = await client.GetTelegramStreamAsync(id);
@@ -61,8 +147,8 @@ XmlNamespaceManager nsManager;
 using (var telegramStream = await ApiClient.GetTelegramStreamAsync("電文のId"))
 using (var reader = XmlReader.Create(telegramStream, new XmlReaderSettings { Async = true }))
 {
-	document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
-	nsManager = new XmlNamespaceManager(reader.NameTable);
+    document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
+    nsManager = new XmlNamespaceManager(reader.NameTable);
 }
 nsManager.AddNamespace("jmx", "http://xml.kishou.go.jp/jmaxml1/");
 // 地震情報の場合以下の追記が必要
@@ -72,6 +158,17 @@ nsManager.AddNamespace("jmx", "http://xml.kishou.go.jp/jmaxml1/");
 // XPathを使用して電文のタイトルが取得できる
 var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title", nsManager)?.Value;
 ```
+
+### 8. アプリケーションの連携を解除する
+
+アプリケーションの連携を解除する際はリフレッシュトークンの失効が必要です。
+
+```cs
+if (client.Authenticator is OAuthAuthenticator authenticator)
+    await authenticator.Credential.RevokeRefleshTokenAsync();
+```
+
+(設計が微妙で苦しい処理になってます、ごめんなさい)
 
 ## WebSocketに接続する
 
@@ -93,7 +190,7 @@ socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
 socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
 socket.DataReceived += (s, e) =>
 {
-	Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()} body: {e.GetBodyString().Substring(0, 20)}...");
+    Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()} body: {e.GetBodyString().Substring(0, 20)}...");
 };
 ```
 
@@ -146,8 +243,8 @@ XmlNamespaceManager nsManager;
 using (var telegramStream = data.GetBodyStream())
 using (var reader = XmlReader.Create(telegramStream, new XmlReaderSettings { Async = true }))
 {
-	document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
-	nsManager = new XmlNamespaceManager(reader.NameTable);
+    document = await XDocument.LoadAsync(reader, LoadOptions.None, CancellationToken.None);
+    nsManager = new XmlNamespaceManager(reader.NameTable);
 }
 nsManager.AddNamespace("jmx", "http://xml.kishou.go.jp/jmaxml1/");
 // 地震情報の場合以下の追記が必要
@@ -162,13 +259,13 @@ var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title"
 
 ```cs
 await socket.ConnectAsync(new SocketStartRequestParameter(
-	TelegramCategoryV1.Earthquake,
-	TelegramCategoryV1.Scheduled,
-	TelegramCategoryV1.Volcano,
-	TelegramCategoryV1.Weather
+    TelegramCategoryV1.Earthquake,
+    TelegramCategoryV1.Scheduled,
+    TelegramCategoryV1.Volcano,
+    TelegramCategoryV1.Weather
 )
 {
-	AppName = "アプリ名",
+    AppName = "アプリ名",
 });
 ```
 
@@ -178,6 +275,10 @@ await socket.ConnectAsync(new SocketStartRequestParameter(
 ## 発生する例外について
 
 APIキー認証の場合、メッセージにAPIキーが含まれている場合文字の置き換えを行います。
+
+### DmdataAuthenticationException
+
+各種資格情報が失効しているか、認可されなかった。
 
 ### DmdataForbiddenException
 

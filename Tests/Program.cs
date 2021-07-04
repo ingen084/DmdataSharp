@@ -1,7 +1,9 @@
 ﻿using DmdataSharp;
 using DmdataSharp.ApiParameters.V2;
+using DmdataSharp.Authentication.OAuth;
 using DmdataSharp.Exceptions;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,19 +11,47 @@ namespace Tests
 {
 	class Program
 	{
-		static async Task Main()
+		async static Task Main()
 		{
-			Console.WriteLine("DmdataのAPIキーを入力してください>");
-			var apiKey = Console.ReadLine();
-			if (string.IsNullOrWhiteSpace(apiKey))
-				apiKey = Environment.GetEnvironmentVariable("DMDATA_APIKEY");
+			//Console.WriteLine("DmdataのAPIキーを入力してください>");
+			//var apiKey = Console.ReadLine();
+			//if (string.IsNullOrWhiteSpace(apiKey))
+			//	apiKey = Environment.GetEnvironmentVariable("DMDATA_APIKEY");
 
-			using var client = DmdataApiClientBuilder.Default
-				.UseApiKey(apiKey)
+			var builder = DmdataApiClientBuilder.Default
 				.UserAgent("DmdataSharp;Example")
-				.Referrer(new Uri("http://ingen084.net/"))
-				.BuildV2ApiClient();
+				.Referrer(new Uri("http://ingen084.net/"));
 
+			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
+			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
+			try
+			{
+				var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthorizaticator.AuthorizationAsync(
+					builder.HttpClient,
+					clientId,
+					scopes,
+					"DmdataSharp サンプルアプリケーション",
+					u =>
+					{
+						Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
+					},
+					"http://localhost:14190/",
+					TimeSpan.FromMinutes(10));
+				builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("認証に失敗しました\n" + ex);
+				return;
+			}
+			//.UseApiKey(apiKey)
+			//.UseOAuthClientCredential(
+			//	"CId...",
+			//	"CSt...",
+			//	new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "telegram.get.volcano", "telegram.get.weather", "telegram.get.scheduled" })
+
+
+			using var client = builder.BuildV2ApiClient();
 			try
 			{
 				// 契約情報を取得
@@ -64,10 +94,7 @@ namespace Tests
       body: {e.GetBodyString().Substring(0, 20)}...");
 				};
 				await socket.ConnectAsync(new SocketStartRequestParameter(
-					TelegramCategoryV1.Earthquake,
-					TelegramCategoryV1.Scheduled,
-					TelegramCategoryV1.Volcano,
-					TelegramCategoryV1.Weather
+					TelegramCategoryV1.Earthquake
 				)
 				{
 					AppName = "DmdataSharp;Example",
@@ -76,30 +103,9 @@ namespace Tests
 				Console.ReadLine();
 				await socket.DisconnectAsync();
 			}
-			Console.ReadLine();
-			{
-				var socket = new DmdataV2Socket(client);
-				socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
-				socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
-				socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
-				socket.DataReceived += (s, e) =>
-				{
-					Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
-      body: {e.GetBodyString().Substring(0, 20)}...");
-				};
-				await socket.ConnectAsync(new SocketStartRequestParameter(
-					TelegramCategoryV1.Earthquake,
-					TelegramCategoryV1.Scheduled,
-					TelegramCategoryV1.Volcano,
-					TelegramCategoryV1.Weather
-				)
-				{
-					AppName = "DmdataSharp;Example",
-				});
 
-				Console.ReadLine();
-				await socket.DisconnectAsync();
-			}
+			if (client.Authenticator is OAuthAuthenticator authenticator)
+				await authenticator.Credential.RevokeRefleshTokenAsync();
 		}
 	}
 }

@@ -60,7 +60,7 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
-				using var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request));
+				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
 					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
 				if (((int)response.StatusCode / 100) == 5)
@@ -90,7 +90,7 @@ namespace DmdataSharp
 				using var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Content = new StringContent(JsonSerializer.Serialize(body, typeof(TRequest)), Encoding.UTF8, "application/json");
 
-				using var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request));
+				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
 					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
 				if (((int)response.StatusCode / 100) == 5)
@@ -117,7 +117,7 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Delete, url);
 
-				using var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request));
+				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
 					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
 				if (((int)response.StatusCode / 100) == 5)
@@ -140,6 +140,7 @@ namespace DmdataSharp
 		/// </summary>
 		public void Dispose()
 		{
+			Authenticator?.Dispose();
 			HttpClient?.Dispose();
 			GC.SuppressFinalize(this);
 		}

@@ -136,7 +136,7 @@ namespace DmdataSharp
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
-				var response = await HttpClient.SendAsync(Authenticator.ProcessRequestMessage(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
 					throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + Authenticator.FilterErrorMessage(url));
 				if (((int)response.StatusCode / 100) == 5)
