@@ -41,7 +41,7 @@ var builder = DmdataApiClientBuilder.Default
 
 **リフレッシュトークンを保存した場合、この手順はスキップすることができます。**
 
-1で作成したOAuthクライアントIDと許可を求めたい(呼びたいAPIが該当する)スコープを `SimpleOAuthAuthorizaticator.AuthorizationAsync` に渡して各種トークン(資格情報)の取得を行います。
+1で作成したOAuthクライアントIDと許可を求めたい(呼びたいAPIが該当する)スコープを `SimpleOAuthAuthenticator.AuthorizationAsync` に渡して各種トークン(資格情報)の取得を行います。
 
 ```cs
 // using DmdataSharp.Authentication.OAuth;
@@ -50,7 +50,7 @@ var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram
 try
 {
     // 認可を得る
-    var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthorizaticator.AuthorizationAsync(
+    var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
         builder.HttpClient,
         clientId,
         scopes,

@@ -16,7 +16,7 @@ namespace DmdataSharp.Authentication.OAuth
 	/// <summary>
 	/// OAuthによるコード認証
 	/// </summary>
-	public static class SimpleOAuthAuthorizaticator
+	public static class SimpleOAuthAuthenticator
 	{
 		/// <summary>
 		/// OAuth認証を行う
