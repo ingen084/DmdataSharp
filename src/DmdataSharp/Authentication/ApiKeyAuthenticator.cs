@@ -1,5 +1,7 @@
-﻿using System;
+﻿using DmdataSharp.Exceptions;
+using System;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace DmdataSharp.Authentication
 {
@@ -35,10 +37,10 @@ namespace DmdataSharp.Authentication
 		/// </summary>
 		/// <param name="message"></param>
 		/// <returns></returns>
-		public override HttpRequestMessage ProcessRequestMessage(HttpRequestMessage message)
+		public override Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
 		{
 			if (message.RequestUri is not Uri uri)
-				throw new Exception("リクエストURIがnullです");
+				throw new DmdataException("リクエストURIがnullです");
 
 			// keyパラメータを付与する すでにGETパラメータが存在する場合は追加する
 			if (uri.ToString().Contains("?"))
@@ -46,7 +48,7 @@ namespace DmdataSharp.Authentication
 			else
 				message.RequestUri = new Uri(uri + "?key=" + ApiKey);
 
-			return message;
+			return Task.FromResult(message);
 		}
 	}
 }

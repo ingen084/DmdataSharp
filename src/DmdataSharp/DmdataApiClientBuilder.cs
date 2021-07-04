@@ -1,8 +1,10 @@
 ﻿using DmdataSharp.Authentication;
+using DmdataSharp.Authentication.OAuth;
 using DmdataSharp.Exceptions;
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace DmdataSharp
 {
@@ -33,20 +35,19 @@ namespace DmdataSharp
 				Timeout = TimeSpan.FromMilliseconds(5000)
 			});
 
-		private HttpClient HttpClient { get; set; }
+		/// <summary>
+		/// APIコールに使用するHttpClient
+		/// </summary>
+		public HttpClient HttpClient { get; private set; }
 		private Authenticator? Authenticator { get; set; }
 
 		/// <summary>
-		/// 独自のHttpClientを使用する
-		/// <para>APIのタイムアウト･UserAgentなどはリセットされます</para>
+		/// 独自のHttpClientを使用してBuilderを作成する
 		/// </summary>
 		/// <param name="client"></param>
 		/// <returns></returns>
-		public DmdataApiClientBuilder UseOwnHttpClient(HttpClient client)
-		{
-			HttpClient = client;
-			return this;
-		}
+		public static DmdataApiClientBuilder UseOwnHttpClient(HttpClient client)
+			=> new(client);
 
 		/// <summary>
 		/// APIのタイムアウトを指定する
@@ -84,6 +85,34 @@ namespace DmdataSharp
 		public DmdataApiClientBuilder UseApiKey(string apiKey)
 		{
 			Authenticator = new ApiKeyAuthenticator(apiKey);
+			return this;
+		}
+
+		/// <summary>
+		/// OAuthのClientCredential認証を行う
+		/// </summary>
+		/// <param name="clientId">クライアントID</param>
+		/// <param name="clientSecret">クライアントシークレット</param>
+		/// <param name="scopes">認可を求めるスコープ</param>
+		/// <returns></returns>
+		public DmdataApiClientBuilder UseOAuthClientCredential(string clientId, string clientSecret, string[] scopes)
+		{
+			Authenticator = new OAuthAuthenticator(new OAuthClientCredential(HttpClient, scopes, clientId, clientSecret));
+			return this;
+		}
+
+		/// <summary>
+		/// OAuthのリフレッシュトークンによる認証を使用する
+		/// </summary>
+		/// <param name="clientId">クライアントID</param>
+		/// <param name="scopes">認可を求めるスコープ</param>
+		/// <param name="refleshToken">リフレッシュトークン</param>
+		/// <param name="accessToken">アクセストークン(存在する場合)</param>
+		/// <param name="accessTokenExpire">アクセストークンの有効期限</param>
+		/// <returns></returns>
+		public DmdataApiClientBuilder UseOAuthRefleshToken(string clientId, string[] scopes, string refleshToken, string? accessToken, DateTime? accessTokenExpire)
+		{
+			Authenticator = new OAuthAuthenticator(new OAuthRefleshTokenCredential(HttpClient, scopes, clientId, refleshToken, accessToken, accessTokenExpire));
 			return this;
 		}
 
