@@ -26,7 +26,7 @@ namespace Tests
 			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
 			try
 			{
-				var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthorizaticator.AuthorizationAsync(
+				var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
 					builder.HttpClient,
 					clientId,
 					scopes,
