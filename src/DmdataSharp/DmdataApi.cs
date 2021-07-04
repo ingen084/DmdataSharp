@@ -61,10 +61,18 @@ namespace DmdataSharp
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
 				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
-				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
-				if (((int)response.StatusCode / 100) == 5)
-					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				switch (response.StatusCode)
+				{
+					case System.Net.HttpStatusCode.Forbidden:
+						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.Unauthorized:
+						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
+						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				}
+				if (!response.IsSuccessStatusCode)
+					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+
 				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is T r)
 					return r;
 				throw new DmdataException("APIレスポンスをパースできませんでした");
@@ -91,10 +99,18 @@ namespace DmdataSharp
 				request.Content = new StringContent(JsonSerializer.Serialize(body, typeof(TRequest)), Encoding.UTF8, "application/json");
 
 				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
-				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
-				if (((int)response.StatusCode / 100) == 5)
-					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				switch (response.StatusCode)
+				{
+					case System.Net.HttpStatusCode.Forbidden:
+						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.Unauthorized:
+						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
+						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				}
+				if (!response.IsSuccessStatusCode)
+					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+
 				if (JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStringAsync()) is TResponse r)
 					return r;
 				throw new DmdataException("APIレスポンスをパースできませんでした");
@@ -119,7 +135,7 @@ namespace DmdataSharp
 
 				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
 				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " +　Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
 				if (((int)response.StatusCode / 100) == 5)
 					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				var respString = await response.Content.ReadAsStringAsync();
