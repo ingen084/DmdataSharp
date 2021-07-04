@@ -283,7 +283,7 @@ namespace DmdataSharp
 		/// WebSocketから切断する
 		/// </summary>
 		/// <returns></returns>
-		public Task? DisconnectAsync()
+		public Task DisconnectAsync()
 		{
 			if (!IsConnected || WebSocketConnectionTask == null)
 				return Task.CompletedTask;
