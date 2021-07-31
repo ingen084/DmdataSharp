@@ -95,6 +95,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンは存在しないため何もしない
 		/// </summary>
 		/// <returns></returns>
-		public override Task RevokeRefleshTokenAsync() => Task.CompletedTask;
+		public override Task RevokeRefreshTokenAsync() => Task.CompletedTask;
 	}
 }

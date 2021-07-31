@@ -95,6 +95,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンを無効化する
 		/// </summary>
 		/// <returns></returns>
-		public abstract Task RevokeRefleshTokenAsync();
+		public abstract Task RevokeRefreshTokenAsync();
 	}
 }

@@ -29,7 +29,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="listenPrefix"></param>
 		/// <param name="timeout"></param>
 		/// <returns></returns>
-		public async static Task<(string refleshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
+		public async static Task<(string refreshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
 			HttpClient client,
 			string clientId,
 			string[] scopes,
@@ -169,12 +169,12 @@ namespace DmdataSharp.Authentication.OAuth
 				throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
 			if (result.TokenType != "Bearer")
 				throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
-			if (result.RefleshToken is not string refleshToken)
+			if (result.RefreshToken is not string refreshToken)
 				throw new DmdataAuthenticationException("レスポンスからリフレッシュトークンを取得できません");
 			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
 				throw new DmdataAuthenticationException("レスポンスからアクセストークンを取得できません");
 
-			return (refleshToken, accessToken, DateTime.Now.AddSeconds(expiresIn));
+			return (refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn));
 		}
 		private static void WriteResponseHtml(Stream stream, string title, string message)
 		{

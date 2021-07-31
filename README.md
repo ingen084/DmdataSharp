@@ -50,7 +50,7 @@ var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram
 try
 {
     // 認可を得る
-    var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
+    var (refreshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
         builder.HttpClient,
         clientId,
         scopes,
@@ -60,7 +60,7 @@ try
         TimeSpan.FromMinutes(10));
 
     // 得た資格情報を登録する(4の内容)
-    builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+    builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
 }
 catch (Exception ex)
 {
@@ -72,7 +72,7 @@ catch (Exception ex)
 `AuthorizationAsync` の解説をしておきます。
 
 ```cs
-Task<(string refleshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
+Task<(string refreshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
     HttpClient client,      // 内部でAPIを呼ぶ際に使用するHttpClient 今回はBuilderで作成したHttpClientを使用します
     string clientId,        // OAuthクライアントID
     string[] scopes,        // 認可を求めるスコープ
@@ -93,7 +93,7 @@ Task<(string refleshToken, string accessToken, DateTime accessTokenExpire)> Auth
 リフレッシュトークンは長期間使用することができるため、起動のたびにブラウザを開かないようにするためにも、アプリケーションに組み込むときは保存しておくとよいでしょう。  
 
 ```cs
-builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
 ```
 
 `accessToken` `accessTokenExpires` は必須ではありません(API実行時に自動で更新されます)。
@@ -165,7 +165,7 @@ var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title"
 
 ```cs
 if (client.Authenticator is OAuthAuthenticator authenticator)
-    await authenticator.Credential.RevokeRefleshTokenAsync();
+    await authenticator.Credential.RevokeRefreshTokenAsync();
 ```
 
 (設計が微妙で苦しい処理になってます、ごめんなさい)
