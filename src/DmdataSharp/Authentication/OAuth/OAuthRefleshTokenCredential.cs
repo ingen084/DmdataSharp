@@ -16,10 +16,10 @@ namespace DmdataSharp.Authentication.OAuth
 	/// <summary>
 	/// OAuthによるコード認証
 	/// </summary>
-	public class OAuthRefleshTokenCredential : OAuthCredential
+	public class OAuthRefreshTokenCredential : OAuthCredential
 	{
 		private string ClientId { get; set; }
-		private string? RefleshToken { get; set; }
+		private string? RefreshToken { get; set; }
 
 		/// <summary>
 		/// 認可コード、リフレッシュトークンによる認証
@@ -29,10 +29,10 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="clientId"></param>
 		/// <param name="accessToken"></param>
 		/// <param name="accessTokenExpire"></param>
-		public OAuthRefleshTokenCredential(HttpClient client, string[] scopes, string clientId, string refleshToken, string? accessToken = null, DateTime? accessTokenExpire = null) : base(client, scopes)
+		public OAuthRefreshTokenCredential(HttpClient client, string[] scopes, string clientId, string refreshToken, string? accessToken = null, DateTime? accessTokenExpire = null) : base(client, scopes)
 		{
 			ClientId = clientId ?? throw new ArgumentNullException(nameof(clientId));
-			RefleshToken = refleshToken ?? throw new ArgumentNullException(nameof(refleshToken));
+			RefreshToken = refreshToken ?? throw new ArgumentNullException(nameof(refreshToken));
 			AccessToken = accessToken;
 			AccessTokenExpire = accessTokenExpire;
 		}
@@ -50,7 +50,7 @@ namespace DmdataSharp.Authentication.OAuth
 				{
 					{ "client_id", ClientId },
 					{ "grant_type", "refresh_token" },
-					{ "refresh_token", RefleshToken },
+					{ "refresh_token", RefreshToken },
 				}));
 #pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 
@@ -100,13 +100,13 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンは存在しないため何もしない
 		/// </summary>
 		/// <returns></returns>
-		public async override Task RevokeRefleshTokenAsync()
+		public async override Task RevokeRefreshTokenAsync()
 		{
 #pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 			var response = await Client.PostAsync(REVOKE_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
 			{
 				{ "client_id", ClientId },
-				{ "token", RefleshToken },
+				{ "token", RefreshToken },
 			}));
 #pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 

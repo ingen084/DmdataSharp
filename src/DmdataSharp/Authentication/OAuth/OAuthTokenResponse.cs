@@ -26,7 +26,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// 取得したリフレッシュトークン
 		/// </summary>
 		[JsonPropertyName("refresh_token")]
-		public string? RefleshToken { get; set; }
+		public string? RefreshToken { get; set; }
 		/// <summary>
 		/// 認可されたスコープ
 		/// </summary>

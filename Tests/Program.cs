@@ -26,7 +26,7 @@ namespace Tests
 			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
 			try
 			{
-				var (refleshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
+				var (refreshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
 					builder.HttpClient,
 					clientId,
 					scopes,
@@ -37,7 +37,7 @@ namespace Tests
 					},
 					"http://localhost:14190/",
 					TimeSpan.FromMinutes(10));
-				builder = builder.UseOAuthRefleshToken(clientId, scopes, refleshToken, accessToken, accessTokenExpires);
+				builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
 			}
 			catch (Exception ex)
 			{
@@ -105,7 +105,7 @@ namespace Tests
 			}
 
 			if (client.Authenticator is OAuthAuthenticator authenticator)
-				await authenticator.Credential.RevokeRefleshTokenAsync();
+				await authenticator.Credential.RevokeRefreshTokenAsync();
 		}
 	}
 }
