@@ -51,7 +51,7 @@ namespace Tests
 			//	new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "telegram.get.volcano", "telegram.get.weather", "telegram.get.scheduled" })
 
 
-			using var client = builder.BuildV2ApiClient();
+			using var client = builder.Build<DmdataV2ApiClient>();
 			try
 			{
 				// 契約情報を取得

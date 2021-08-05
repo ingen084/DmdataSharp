@@ -148,5 +148,18 @@ namespace DmdataSharp
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
 			return new DmdataV2ApiClient(HttpClient, Authenticator);
 		}
+		/// <summary>
+		/// API V2クライアントの初期化を行う
+		/// </summary>
+		/// <returns>API V2クライアントのインスタンス</returns>
+		public T Build<T>() where T : DmdataApi
+		{
+			if (Authenticator is null)
+				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
+			var ins = Activator.CreateInstance(typeof(T), new object[] { HttpClient, Authenticator });
+			if (ins is not T api)
+				throw new DmdataException("Apiインスタンスの生成に失敗しました");
+			return api;
+		}
 	}
 }
