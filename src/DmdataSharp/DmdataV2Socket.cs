@@ -155,7 +155,7 @@ namespace DmdataSharp
 						}
 
 						// メッセージの最後まで取得
-						int length = result.Count;
+						var length = result.Count;
 						while (!result.EndOfMessage)
 						{
 							if (length >= buffer.Length)

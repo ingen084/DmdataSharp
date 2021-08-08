@@ -15,7 +15,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのWebSocketセッション
 	/// </summary>
-	[Obsolete]
+	[Obsolete("APIv1は廃止予定です")]
 	public class DmdataV1Socket : IDisposable
 	{
 		/// <summary>
@@ -69,7 +69,7 @@ namespace DmdataSharp
 		/// WebSocketインスタンスを初期化する
 		/// </summary>
 		/// <param name="apiClient">親となるAPIクライアント</param>
-		[Obsolete]
+		[Obsolete("APIv1は廃止予定です")]
 		public DmdataV1Socket(DmdataV1ApiClient apiClient)
 		{
 			ApiClient = apiClient;
@@ -177,7 +177,7 @@ namespace DmdataSharp
 						}
 
 						// メッセージの最後まで取得
-						int length = result.Count;
+						var length = result.Count;
 						while (!result.EndOfMessage)
 						{
 							if (length >= buffer.Length)

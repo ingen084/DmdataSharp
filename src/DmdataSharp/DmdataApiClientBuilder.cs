@@ -131,7 +131,7 @@ namespace DmdataSharp
 		/// API V1クライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V1クライアントのインスタンス</returns>
-		[Obsolete]
+		[Obsolete("APIv1は廃止予定です")]
 		public DmdataV1ApiClient BuildV1ApiClient()
 		{
 			if (Authenticator is null)

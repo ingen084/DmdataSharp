@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace Tests
 {
-	class Program
+	internal class Program
 	{
-		async static Task Main()
+		private async static Task Main()
 		{
 			//Console.WriteLine("DmdataのAPIキーを入力してください>");
 			//var apiKey = Console.ReadLine();
@@ -23,7 +23,7 @@ namespace Tests
 				.Referrer(new Uri("http://ingen084.net/"));
 
 			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
-			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
+			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "gd.earthquake" };
 			try
 			{
 				var (refreshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
@@ -79,6 +79,24 @@ namespace Tests
 			catch (DmdataForbiddenException)
 			{
 				Console.WriteLine("APIキーが正しくないか、電文リストが取得できませんでした。 telegram.list 権限が必要です。");
+			}
+
+			try
+			{
+				// 地震情報を取得
+				var events = await client.GetEarthquakeEventsAsync();
+				Console.WriteLine("** 地震情報 **");
+				foreach (var item in events.Items)
+				{
+					Console.WriteLine($"{item.Id}({item.EventId}) {item.Hypocenter?.Name} 最大震度{item.MaxInt}");
+					var ev = await client.GetEarthquakeEventAsync(item.EventId);
+					foreach (var t in ev.Event.Telegrams)
+						Console.WriteLine($"- {t.Id}");
+				}
+			}
+			catch (DmdataForbiddenException)
+			{
+				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 gd.earthquake 権限が必要です。");
 			}
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();

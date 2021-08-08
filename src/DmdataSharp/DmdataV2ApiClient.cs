@@ -1,7 +1,9 @@
 ﻿using DmdataSharp.ApiParameters.V2;
 using DmdataSharp.ApiResponses.V2;
+using DmdataSharp.ApiResponses.V2.GroupedData;
 using DmdataSharp.ApiResponses.V2.Parameters;
 using DmdataSharp.Authentication;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -85,9 +87,53 @@ namespace DmdataSharp
 				parameterMap["formatMode"] = formatMode;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
+#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
+#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 		}
 
+		/// <summary>
+		/// 地震イベント一覧を取得します
+		/// <para>gd.earthquake が必要です</para>
+		/// </summary>
+		/// <param name="hypocenter">検索する震央地名コードの3桁の数字</param>
+		/// <param name="maxInt">検索する最大震度の下限</param>
+		/// <param name="date">検索する地震波検知時刻の日付 時刻部分は使用されません</param>
+		/// <param name="cursorToken">前回のレスポンスの値を入れると前回以降の新しい情報のみを取得できる</param>
+		/// <param name="limit">返す情報数を指定する 最大は100</param>
+		/// <returns>地震イベント一覧</returns>
+		public async Task<EarthquakeListResponse> GetEarthquakeEventsAsync(
+			string? hypocenter = null,
+			string? maxInt = null,
+			DateTime? date = null,
+			string? cursorToken = null,
+			int? limit = 20
+			)
+		{
+			var parameterMap = new Dictionary<string, string?>();
+			if (!string.IsNullOrWhiteSpace(hypocenter))
+				parameterMap["hypocenter"] = hypocenter;
+			if (!string.IsNullOrWhiteSpace(maxInt))
+				parameterMap["maxInt"] = maxInt;
+			if (date is DateTime dateTime)
+				parameterMap["date"] = dateTime.Date.ToString("yyyy-MM-dd");
+			if (!string.IsNullOrWhiteSpace(cursorToken))
+				parameterMap["cursorToken"] = cursorToken;
+			if (limit != 20)
+				parameterMap["limit"] = limit.ToString();
+#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
+			return await GetJsonObject<EarthquakeListResponse>($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
+#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
+		}
+
+		/// <summary>
+		/// 地震イベントの詳細を取得します
+		/// <para>gd.earthquake が必要です</para>
+		/// </summary>
+		/// <param name="eventId">地震情報のEventID</param>
+		/// <returns>地震イベントの詳細</returns>
+		public Task<EarthquakeEventResponse> GetEarthquakeEventAsync(string eventId)
+			=> GetJsonObject<EarthquakeEventResponse>($"https://api.dmdata.jp/v2/gd/earthquake/" + eventId);
 
 		/// <summary>
 		/// 地震観測地点の情報を取得します
