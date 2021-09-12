@@ -2,6 +2,7 @@
 using DmdataSharp.Exceptions;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -105,6 +106,12 @@ namespace DmdataSharp
 						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+#if !NET5_0
+					case (System.Net.HttpStatusCode)429:
+#else
+					case System.Net.HttpStatusCode.TooManyRequests:
+#endif
+						throw new DmdataRateLimitExceededException(response.Headers.TryGetValues("Retry-After", out var retry) ? retry.FirstOrDefault() : null);
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
@@ -134,10 +141,23 @@ namespace DmdataSharp
 				using var request = new HttpRequestMessage(HttpMethod.Delete, url);
 
 				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
-				if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-					throw new DmdataForbiddenException("現在の認証情報に権限がない、もしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
-				if (((int)response.StatusCode / 100) == 5)
-					throw new DmdataException("dmdataでサーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				switch (response.StatusCode)
+				{
+					case System.Net.HttpStatusCode.Forbidden:
+						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.Unauthorized:
+						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+#if !NET5_0
+					case (System.Net.HttpStatusCode)429:
+#else
+					case System.Net.HttpStatusCode.TooManyRequests:
+#endif
+						throw new DmdataRateLimitExceededException(response.Headers.TryGetValues("Retry-After", out var retry) ? retry.FirstOrDefault() : null);
+					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
+						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				}
+				if (!response.IsSuccessStatusCode)
+					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 				var respString = await response.Content.ReadAsStringAsync();
 				if (string.IsNullOrWhiteSpace(respString))
 					return default;

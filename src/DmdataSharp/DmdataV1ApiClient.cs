@@ -137,16 +137,25 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
 				var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
-				return response.StatusCode switch
+				switch (response.StatusCode)
 				{
-					System.Net.HttpStatusCode.Forbidden
-						=> throw new DmdataForbiddenException("APIキーに権限がないもしくは不正なAPIキーです。 URL: " + Authenticator.FilterErrorMessage(url)),
-					System.Net.HttpStatusCode.Unauthorized
-						=> throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url)),
-					System.Net.HttpStatusCode s when ((int)s / 100) == 5
-						=> throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode),
-					_ => await response.Content.ReadAsStreamAsync(),
-				};
+					case System.Net.HttpStatusCode.Forbidden:
+						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.Unauthorized:
+						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+#if !NET5_0
+					case (System.Net.HttpStatusCode)429:
+#else
+					case System.Net.HttpStatusCode.TooManyRequests:
+#endif
+						throw new DmdataRateLimitExceededException(response.Headers.TryGetValues("Retry-After", out var retry) ? retry.FirstOrDefault() : null);
+					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
+						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				}
+				if (!response.IsSuccessStatusCode)
+					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+
+				return await response.Content.ReadAsStreamAsync();
 			}
 			catch (TaskCanceledException)
 			{
