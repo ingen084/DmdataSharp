@@ -54,25 +54,12 @@ namespace Tests
 			using var client = builder.Build<DmdataV2ApiClient>();
 			try
 			{
-				// 契約情報を取得
-				var contractInfo = await client.GetContractListAsync();
-				Console.WriteLine(@$"** 契約情報 **
-*課金明細
-{string.Join('\n', contractInfo.Items.Select(i => $"  {i.ClassificationName}({i.Classification}) {i.Price.Day}円/日(最大{i.Price.Month}円/月)"))}");
-			}
-			catch (DmdataForbiddenException)
-			{
-				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 contract.list 権限が必要です。");
-			}
-			Console.WriteLine();
-			try
-			{
 				// 電文リストを10件取得してみる
 				var telegramList = await client.GetTelegramListAsync(limit: 10);
 				Console.WriteLine($"** 電文リスト **\n");
 				foreach (var item in telegramList.Items)
 				{
-					Console.WriteLine($@"** {item.Head.Type}
+					Console.WriteLine($@"** {item.Head.Type} {item.ReceiveTime:yyyy/MM/dd HH:mm:ss} 
   Key: {item.Id}");
 				}
 			}
@@ -88,7 +75,7 @@ namespace Tests
 				Console.WriteLine("** 地震情報 **");
 				foreach (var item in events.Items)
 				{
-					Console.WriteLine($"{item.Id}({item.EventId}) {item.Hypocenter?.Name} 最大震度{item.MaxInt}");
+					Console.WriteLine($"{item.OriginTime:yyyy/MM/dd HH:mm:ss} {item.Id}({item.EventId}) {item.Hypocenter?.Name} 最大震度{item.MaxInt}");
 					var ev = await client.GetEarthquakeEventAsync(item.EventId);
 					foreach (var t in ev.Event.Telegrams)
 						Console.WriteLine($"- {t.Id}");

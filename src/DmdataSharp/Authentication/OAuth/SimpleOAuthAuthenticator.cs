@@ -41,10 +41,10 @@ namespace DmdataSharp.Authentication.OAuth
 			var stateString = "";
 			var codeVerifierString = "";
 			var challengeCodeString = "";
-			var authorizationCode = "";
+			var authorizationCode = ""; 
 
-			using (var random = new RNGCryptoServiceProvider())
-			using (var s256 = new SHA256Managed())
+			using (var random = RandomNumberGenerator.Create())
+			using (var s256 = SHA256.Create())
 			{
 				var stateCode = new byte[32];
 				random.GetBytes(stateCode);

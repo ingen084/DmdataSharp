@@ -24,11 +24,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <summary>
 		/// 認可コード、リフレッシュトークンによる認証
 		/// </summary>
-		/// <param name="client"></param>
-		/// <param name="scopes"></param>
-		/// <param name="clientId"></param>
-		/// <param name="accessToken"></param>
-		/// <param name="accessTokenExpire"></param>
 		public OAuthRefreshTokenCredential(HttpClient client, string[] scopes, string clientId, string refreshToken, string? accessToken = null, DateTime? accessTokenExpire = null) : base(client, scopes)
 		{
 			ClientId = clientId ?? throw new ArgumentNullException(nameof(clientId));

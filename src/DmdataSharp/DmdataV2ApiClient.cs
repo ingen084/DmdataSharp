@@ -80,7 +80,7 @@ namespace DmdataSharp
 			if (xmlReport)
 				parameterMap["xmlReport"] = "true";
 			if (test != "no")
-				parameterMap["test"] = "true";
+				parameterMap["test"] = test;
 			if (!string.IsNullOrWhiteSpace(cursorToken))
 				parameterMap["cursorToken"] = cursorToken;
 			if (formatMode != "raw")
