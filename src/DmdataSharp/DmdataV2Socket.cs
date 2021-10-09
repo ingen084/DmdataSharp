@@ -238,7 +238,8 @@ namespace DmdataSharp
 			catch (Exception ex)
 			{
 				Debug.WriteLine("WebSocket受信スレッドで例外が発生しました\n" + ex);
-				await WebSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED", TokenSource.Token);
+				if (IsConnected)
+					await WebSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED", TokenSource.Token);
 				OnDisconnected();
 			}
 		}
