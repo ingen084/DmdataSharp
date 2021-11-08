@@ -57,7 +57,7 @@ namespace DmdataSharp.WebSocketMessages.V1
 		{
 			if (Body is null)
 				throw new DmdataException("WebSocketメッセージが正常にパースできていないためBodyの検証ができません");
-			var result = new SHA384Managed().ComputeHash(Convert.FromBase64String(Body));
+			var result = SHA384.Create().ComputeHash(Convert.FromBase64String(Body));
 			return string.Join("", result.Select(r => r.ToString("x2"))) == Key;
 		}
 		/// <summary>
