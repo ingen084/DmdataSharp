@@ -71,8 +71,8 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				if (!response.IsSuccessStatusCode)
-					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+				//if (!response.IsSuccessStatusCode)
+				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 
 				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is T r)
 					return r;
@@ -115,8 +115,8 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				if (!response.IsSuccessStatusCode)
-					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+				//if (!response.IsSuccessStatusCode)
+				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 
 				if (JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStringAsync()) is TResponse r)
 					return r;
@@ -156,8 +156,8 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				if (!response.IsSuccessStatusCode)
-					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+				//if (!response.IsSuccessStatusCode)
+				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 				var respString = await response.Content.ReadAsStringAsync();
 				if (string.IsNullOrWhiteSpace(respString))
 					return default;
