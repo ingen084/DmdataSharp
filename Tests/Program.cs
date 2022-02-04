@@ -59,7 +59,7 @@ namespace Tests
 				Console.WriteLine($"** 電文リスト **\n");
 				foreach (var item in telegramList.Items)
 				{
-					Console.WriteLine($@"** {item.Head.Type} {item.ReceiveTime:yyyy/MM/dd HH:mm:ss} 
+					Console.WriteLine($@"** {item.Head.Type} {item.ReceivedTime:yyyy/MM/dd HH:mm:ss} 
   Key: {item.Id}");
 				}
 			}
@@ -96,7 +96,7 @@ namespace Tests
 				socket.DataReceived += (s, e) =>
 				{
 					Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
-      body: {e.GetBodyString().Substring(0, 20)}...");
+      body: {e.GetBodyString()[..20]}...");
 				};
 				await socket.ConnectAsync(new SocketStartRequestParameter(
 					TelegramCategoryV1.Earthquake

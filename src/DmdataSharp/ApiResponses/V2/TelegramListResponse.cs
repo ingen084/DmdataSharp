@@ -58,8 +58,8 @@ namespace DmdataSharp.ApiResponses.V2
 			/// <summary>
 			/// 受信時刻
 			/// </summary>
-			[JsonPropertyName("receiveTime")]
-			public DateTime ReceiveTime { get; set; }
+			[JsonPropertyName("receivedTime")]
+			public DateTime ReceivedTime { get; set; }
 			/// <summary>
 			/// XML電文Control,Head情報
 			/// </summary>
