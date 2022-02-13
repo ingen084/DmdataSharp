@@ -26,15 +26,20 @@ namespace DmdataSharp.ApiResponses.V2
 			[JsonPropertyName("id")]
 			public int? Id { get; set; }
 			/// <summary>
+			/// 区分ID
+			/// </summary>
+			[JsonPropertyName("planId")]
+			public int PlanId { get; set; }
+			/// <summary>
+			/// 区分名
+			/// </summary>
+			[JsonPropertyName("planName")]
+			public string PlanName { get; set; }
+			/// <summary>
 			/// 区分API名
 			/// </summary>
 			[JsonPropertyName("classification")]
 			public string Classification { get; set; }
-			/// <summary>
-			/// 区分名
-			/// </summary>
-			[JsonPropertyName("classificationName")]
-			public string ClassificationName { get; set; }
 			/// <summary>
 			/// 価格
 			/// </summary>
