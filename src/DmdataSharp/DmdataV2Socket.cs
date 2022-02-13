@@ -2,9 +2,7 @@
 using DmdataSharp.WebSocketMessages;
 using DmdataSharp.WebSocketMessages.V2;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -89,7 +87,7 @@ namespace DmdataSharp
 						true,
 						TokenSource?.Token ?? CancellationToken.None);
 				}
-				catch (Exception) {}
+				catch (Exception) { }
 			}, null, Timeout.Infinite, Timeout.Infinite);
 			WatchDogTimer = new Timer(_ =>
 			{
