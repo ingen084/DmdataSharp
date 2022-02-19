@@ -87,9 +87,7 @@ namespace DmdataSharp
 				parameterMap["formatMode"] = formatMode;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 		}
 
 		/// <summary>
@@ -121,9 +119,7 @@ namespace DmdataSharp
 				parameterMap["cursorToken"] = cursorToken;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 			return await GetJsonObject<EarthquakeListResponse>($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 		}
 
 		/// <summary>

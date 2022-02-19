@@ -250,7 +250,7 @@ namespace DmdataSharp
 			IsDisposed = true;
 			PingTimer.Change(Timeout.Infinite, Timeout.Infinite);
 			WatchDogTimer.Change(Timeout.Infinite, Timeout.Infinite);
-			Disconnected?.Invoke(this, null);
+			Disconnected?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>

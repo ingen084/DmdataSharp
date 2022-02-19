@@ -1,10 +1,13 @@
 ﻿using DmdataSharp.Exceptions;
+using JWT.Algorithms;
+using JWT.Builder;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -19,29 +22,62 @@ namespace DmdataSharp.Authentication.OAuth
 	public static class SimpleOAuthAuthenticator
 	{
 		/// <summary>
+		/// エフェメラルポートのうち、未使用のTCPポートを検索する
+		/// </summary>
+		/// <param name="port">TCPポート</param>
+		/// <returns>発見できたか</returns>
+		public static bool TryFindUnusedPort(out ushort port)
+		{
+			var props = IPGlobalProperties.GetIPGlobalProperties();
+			var conns = props.GetActiveTcpConnections();
+			for (ushort p = 49152; p <= ushort.MaxValue; p++)
+			{
+				if (conns.Any(c => c.LocalEndPoint.Port == p))
+					continue;
+				port = p;
+				return true;
+			}
+			port = 0;
+			return false;
+		}
+
+		/// <summary>
 		/// OAuth認証を行う
 		/// </summary>
-		/// <param name="client"></param>
-		/// <param name="scopes"></param>
-		/// <param name="clientId"></param>
-		/// <param name="title"></param>
-		/// <param name="openUrl"></param>
-		/// <param name="listenPrefix"></param>
-		/// <param name="timeout"></param>
+		/// <param name="client">リクエストに使用するHttpClient</param>
+		/// <param name="scopes">認可を求めるスコープ</param>
+		/// <param name="clientId">認可を求めるクライアントID</param>
+		/// <param name="title">認可後の画面に表示されるクライアント名</param>
+		/// <param name="openUrl">URLを開くロジック</param>
+		/// <param name="token">CancellationToken</param>
+		/// <param name="useDpop">ポート</param>
+		/// <param name="listenPort"></param>
 		/// <returns></returns>
-		public async static Task<(string refreshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
+		public async static Task<OAuthRefreshTokenCredential> AuthorizationAsync(
 			HttpClient client,
 			string clientId,
 			string[] scopes,
 			string title,
 			Action<string> openUrl,
-			string listenPrefix,
-			TimeSpan timeout)
+			bool useDpop = true,
+			CancellationToken? token = null,
+			ushort? listenPort = null)
 		{
+#if NET472
+			if (useDpop)
+				throw new NotSupportedException(".NET Framework はDPoPに対応していません");
+#endif
+			var cancellationToken = token ?? CancellationToken.None;
+			// ポートが指定されなかった場合ポートを探す
+			if (listenPort is not ushort lp && !TryFindUnusedPort(out lp))
+				throw new DmdataAuthenticationException("空きポートが見つかりません");
+
+			var listenPrefix = $"http://127.0.0.1:{lp}/";
 			var stateString = "";
 			var codeVerifierString = "";
 			var challengeCodeString = "";
 			var authorizationCode = "";
+			ECDsa? dsa = null;
 
 			using (var random = RandomNumberGenerator.Create())
 			using (var s256 = SHA256.Create())
@@ -64,8 +100,6 @@ namespace DmdataSharp.Authentication.OAuth
 
 				// リスナー開始
 				listener.Start();
-
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 				openUrl($"{OAuthCredential.AUTH_ENDPOINT_URL}?" + await new FormUrlEncodedContent(new Dictionary<string, string>()
 				{
 					{ "client_id", clientId },
@@ -77,17 +111,16 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "code_challenge", challengeCodeString },
 					{ "code_challenge_method", "S256" },
 				}).ReadAsStringAsync());
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
-
 				var mre = new ManualResetEvent(false);
 
-				var listenTask = Task.Run(() =>
+				cancellationToken.Register(() => mre.Set());
+				var listenTask = Task.Run(async () =>
 				{
 					try
 					{
 						while (true)
 						{
-							var context = listener.GetContext();
+							var context = await listener.GetContextAsync();
 							var request = context.Request;
 							var response = context.Response;
 
@@ -138,43 +171,55 @@ namespace DmdataSharp.Authentication.OAuth
 						}
 					}
 					catch (HttpListenerException) { }
-				});
+				}, cancellationToken);
 
-				if (!await Task.Run(() => mre.WaitOne(timeout)))
-					throw new DmdataAuthenticationException("コード認証がタイムアウトしました");
-
+				// CancellationTokenが呼ばれるか処理が完了するまで待機する
+				await Task.Run(() => mre.WaitOne());
 				listener.Stop();
+				await listenTask;
 			}
 
-			if (string.IsNullOrWhiteSpace(authorizationCode))
+			if (string.IsNullOrWhiteSpace(authorizationCode) || cancellationToken.IsCancellationRequested)
 				throw new DmdataAuthenticationException("認証はキャンセルされました");
 
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
-			var response = await client.PostAsync(OAuthCredential.TOKEN_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
-				{
-					{ "client_id", clientId },
-					{ "grant_type", "authorization_code" },
-					{ "code", authorizationCode },
-					{ "code_verifier", codeVerifierString },
-				}));
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
+			using var request = new HttpRequestMessage(HttpMethod.Post, OAuthCredential.TOKEN_ENDPOINT_URL);
+			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
+			{
+				{ "client_id", clientId },
+				{ "grant_type", "authorization_code" },
+				{ "code", authorizationCode },
+				{ "redirect_uri", listenPrefix },
+				{ "code_verifier", codeVerifierString },
+			});
 
+#if !NET472
+			if (useDpop)
+			{
+				dsa = ECDsa.Create(ECCurve.NamedCurves.nistP521);
+				OAuthRefreshTokenCredential.SetDpopJwtHeader(request, dsa, null);
+			}
+#endif
+
+			using var response = await client.SendAsync(request);
 			if (!response.IsSuccessStatusCode)
 			{
 				var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
 				throw new DmdataAuthenticationException($"OAuth認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
 			}
+
 			var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
 			if (result == null)
 				throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
-			if (result.TokenType != "Bearer")
+			if (!useDpop && result.TokenType != "Bearer")
 				throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
+			if (useDpop && result.TokenType != "DPoP")
+				throw new DmdataAuthenticationException("DPoP使用中はDPoPトークン以外は処理できません");
 			if (result.RefreshToken is not string refreshToken)
 				throw new DmdataAuthenticationException("レスポンスからリフレッシュトークンを取得できません");
 			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
 				throw new DmdataAuthenticationException("レスポンスからアクセストークンを取得できません");
 
-			return (refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn));
+			return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa);
 		}
 		private static void WriteResponseHtml(Stream stream, string title, string message)
 		{

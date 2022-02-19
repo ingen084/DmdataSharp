@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace DmdataSharp.Authentication.OAuth
 {
 	/// <summary>
-	/// OAuthで使用する認証情報
+	/// OAuthで使用する認可情報
 	/// </summary>
 	public abstract class OAuthCredential
 	{
@@ -21,6 +21,10 @@ namespace DmdataSharp.Authentication.OAuth
 		/// 失効エンドポイント
 		/// </summary>
 		public const string REVOKE_ENDPOINT_URL = "https://manager.dmdata.jp/account/oauth2/v1/revoke";
+		/// <summary>
+		/// 権限チェックエンドポイント
+		/// </summary>
+		public const string INTROSPECT_ENDPOINT_URL = "https://manager.dmdata.jp/account/oauth2/v1/introspect";
 
 		/// <summary>
 		/// 認証情報を初期化する
@@ -58,10 +62,8 @@ namespace DmdataSharp.Authentication.OAuth
 		{
 			if (AccessTokenExpire is not DateTime expireDate || AccessToken is not string token)
 			{
-#pragma warning disable CS8625 // null リテラルを null 非許容参照型に変換できません。
-				accessToken = null;
+				accessToken = null!;
 				return false;
-#pragma warning restore CS8625 // null リテラルを null 非許容参照型に変換できません。
 			}
 			accessToken = token;
 			return DateTime.Now < expireDate;
@@ -79,6 +81,18 @@ namespace DmdataSharp.Authentication.OAuth
 			AccessTokenExpire = DateTime.Now.AddSeconds(expires);
 			return AccessToken = token;
 		}
+
+		/// <summary>
+		/// HttpRequestMessageに認証情報を付加します
+		/// </summary>
+		/// <param name="message"></param>
+		/// <returns></returns>
+		public async virtual Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
+		{
+			message.Headers.TryAddWithoutValidation("Authorization", "Bearer " + await GetOrUpdateAccessTokenAsync());
+			return message;
+		}
+
 
 		/// <summary>
 		/// アクセストークンを取得する

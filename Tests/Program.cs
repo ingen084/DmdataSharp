@@ -2,9 +2,10 @@
 using DmdataSharp.ApiParameters.V2;
 using DmdataSharp.Authentication.OAuth;
 using DmdataSharp.Exceptions;
+using JWT.Builder;
 using System;
 using System.Diagnostics;
-using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace Tests
@@ -18,6 +19,25 @@ namespace Tests
 			//if (string.IsNullOrWhiteSpace(apiKey))
 			//	apiKey = Environment.GetEnvironmentVariable("DMDATA_APIKEY");
 
+			//using var dsa = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP384);
+			//var param = dsa.ExportParameters(true);
+			//var priv = Convert.ToBase64String(param.D);
+			//var jwt = JwtBuilder.Create()
+			//	.AddHeader(HeaderName.Type, "dpop+jwt")
+			//	.WithAlgorithm(new JWT.Algorithms.ES384Algorithm(dsa, dsa))
+			//	.AddHeader("jwk", new {
+			//		kty = "EC",
+			//		crv = "P-384",
+			//		x = Convert.ToBase64String(param.Q.X).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+			//		y = Convert.ToBase64String(param.Q.Y).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+			//	})
+			//	.Id(Guid.NewGuid())
+			//	.AddClaim("htm", "POST")
+			//	.AddClaim("htu", OAuthCredential.TOKEN_ENDPOINT_URL)
+			//	.AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+			//	.Encode();
+			//;
+
 			var builder = DmdataApiClientBuilder.Default
 				.UserAgent("DmdataSharp;Example")
 				.Referrer(new Uri("http://ingen084.net/"));
@@ -26,7 +46,10 @@ namespace Tests
 			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "gd.earthquake" };
 			try
 			{
-				var (refreshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
+				if (!SimpleOAuthAuthenticator.TryFindUnusedPort(out var port))
+					throw new Exception("空きポートが見つかりません");
+
+				var credential = await SimpleOAuthAuthenticator.AuthorizationAsync(
 					builder.HttpClient,
 					clientId,
 					scopes,
@@ -35,9 +58,8 @@ namespace Tests
 					{
 						Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
 					},
-					"http://localhost:14190/",
-					TimeSpan.FromMinutes(10));
-				builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
+					true);
+				builder = builder.UseOAuth(credential);
 			}
 			catch (Exception ex)
 			{

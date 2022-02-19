@@ -29,10 +29,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="message"></param>
 		/// <returns></returns>
 		public async override Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
-		{
-			message.Headers.TryAddWithoutValidation("Authorization", "Bearer " + await Credential.GetOrUpdateAccessTokenAsync());
-			return message;
-		}
+			=> await Credential.ProcessRequestMessageAsync(message);
 
 		/// <summary>
 		/// トークンを開放します
@@ -41,6 +38,7 @@ namespace DmdataSharp.Authentication.OAuth
 		{
 			Credential.RevokeAccessTokenAsync();
 			base.Dispose();
+			GC.SuppressFinalize(this);
 		}
 	}
 }

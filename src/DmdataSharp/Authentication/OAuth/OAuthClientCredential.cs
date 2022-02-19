@@ -36,7 +36,6 @@ namespace DmdataSharp.Authentication.OAuth
 		{
 			try
 			{
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 				var response = await Client.PostAsync(TOKEN_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
 				{
 					{ "client_id", ClientId },
@@ -44,8 +43,6 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "grant_type", "client_credentials" },
 					{ "scope", string.Join(" ", Scopes) },
 				}));
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
-
 				if (!response.IsSuccessStatusCode)
 				{
 					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
@@ -75,16 +72,12 @@ namespace DmdataSharp.Authentication.OAuth
 		{
 			if (!TryGetAccessToken(out var token))
 				return;
-
-#pragma warning disable CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
 			var response = await Client.PostAsync(REVOKE_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
 			{
 				{ "client_id", ClientId },
 				{ "client_secret", ClientSecret },
 				{ "token", token },
 			}));
-#pragma warning restore CS8620 // 参照型の NULL 値の許容の違いにより、パラメーターに引数を使用できません。
-
 			if (!response.IsSuccessStatusCode)
 				throw new DmdataAuthenticationException("ClientCredential認証のアクセストークンの無効化に失敗しました ");
 		}
