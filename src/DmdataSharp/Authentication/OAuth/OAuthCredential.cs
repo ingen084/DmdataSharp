@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DmdataSharp.ApiResponses.V1;
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -97,14 +98,17 @@ namespace DmdataSharp.Authentication.OAuth
 			return await sendAsync(request);
 		}
 
-		// TODO: introspect APIを叩けるようにする
-
-
 		/// <summary>
 		/// アクセストークンを取得する
 		/// </summary>
 		/// <returns>Bearerトークンと有効期限</returns>
 		protected abstract Task<(int, string)> GetAccessTokenAsync();
+
+		/// <summary>
+		/// リフレッシュトークンの詳細を取得する
+		/// </summary>
+		/// <returns></returns>
+		public abstract Task<OAuthIntrospectResponse?> IntrospectAsync();
 
 		/// <summary>
 		/// アクセストークンを無効化する

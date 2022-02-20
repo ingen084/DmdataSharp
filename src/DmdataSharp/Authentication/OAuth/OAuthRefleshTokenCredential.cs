@@ -1,8 +1,10 @@
-﻿using DmdataSharp.Exceptions;
+﻿using DmdataSharp.ApiResponses.V1;
+using DmdataSharp.Exceptions;
 using JWT.Algorithms;
 using JWT.Builder;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -103,11 +105,55 @@ namespace DmdataSharp.Authentication.OAuth
 		{
 			if (DpopKey == null)
 				return await base.ProcessRequestAsync(request, sendAsync);
-			// TODO: Nonce対応
-			SetDpopJwtHeader(request, DpopKey, await GetOrUpdateAccessTokenAsync());
-			return await sendAsync(request);
+			SetDpopJwtHeader(request, DpopKey, await GetOrUpdateAccessTokenAsync(), DpopNonce);
+
+			var response = await sendAsync(request);
+
+			// 新しいNonceを取得
+			string? newNonce = null;
+			if (response.Headers.TryGetValues("DPoP-Nonce", out var newNonces))
+				newNonce = newNonces.First();
+
+			// スレッドセーフにするため再送が完了するまで他のリクエストでは新しいNonceを使用させない
+			if (newNonce != null)
+			{
+				// 再送が必要な状況
+				if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+				{
+					// 不要になるのでdispose
+					response.Dispose();
+
+					// 新しいNonceで再セット
+					SetDpopJwtHeader(request, DpopKey, await GetOrUpdateAccessTokenAsync(), newNonce);
+					// 再送(1度までしか再送しない)
+					response = await sendAsync(request);
+				}
+
+				// 再送が終了してから新しいNonceをセット
+				DpopNonce = newNonce;
+			}
+
+			return response;
 		}
 
+		/// <summary>
+		/// リフレッシュトークンの詳細を取得する
+		/// </summary>
+		/// <returns></returns>
+		public async override Task<OAuthIntrospectResponse?> IntrospectAsync()
+		{
+			using var request = new HttpRequestMessage(HttpMethod.Post, INTROSPECT_ENDPOINT_URL);
+			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
+			{
+				{ "client_id", ClientId },
+				{ "token", RefreshToken },
+			}!);
+			if (DpopKey != null)
+				SetDpopJwtHeader(request, DpopKey, null);
+
+			using var response = await Client.SendAsync(request);
+			return await JsonSerializer.DeserializeAsync<OAuthIntrospectResponse>(await response.Content.ReadAsStreamAsync());
+		}
 
 		/// <summary>
 		/// トークンの無効化
@@ -155,18 +201,23 @@ namespace DmdataSharp.Authentication.OAuth
 		/// </summary>
 		/// <param name="request">元にするリクエスト</param>
 		/// <param name="key">JWTに使用する鍵</param>
-		/// <param name="accessToken"></param>
-		public static void SetDpopJwtHeader(HttpRequestMessage request, ECDsa key, string? accessToken)
+		/// <param name="accessToken">アクセストークン</param>
+		/// <param name="nonce">ナンス</param>
+		public static void SetDpopJwtHeader(HttpRequestMessage request, ECDsa key, string? accessToken, string? nonce = null)
 		{
 #if NET472
 			throw new NotSupportedException(".NET Framework はDPoPに対応していません");
 #else
 			if (accessToken != null)
+			{
+				request.Headers.Remove("Authorization");
 				request.Headers.Add("Authorization", "DPoP " + accessToken);
-			request.Headers.Add("DPoP", CreateDpopJwt(request, key, accessToken));
+			}
+			request.Headers.Remove("DPoP");
+			request.Headers.Add("DPoP", CreateDpopJwt(request, key, accessToken, nonce));
 		}
 
-		private static string CreateDpopJwt(HttpRequestMessage request, ECDsa key, string? accessToken)
+		private static string CreateDpopJwt(HttpRequestMessage request, ECDsa key, string? accessToken, string? nonce)
 		{
 			var param = key.ExportParameters(false);
 
@@ -177,10 +228,16 @@ namespace DmdataSharp.Authentication.OAuth
 
 			var builder = JwtBuilder.Create()
 				.AddHeader(HeaderName.Type, "dpop+jwt")
-				.WithAlgorithm(new ES512Algorithm(key, key))
+				.WithAlgorithm(key.KeySize switch
+				{
+					256 => new ES256Algorithm(key, key),
+					384 => new ES384Algorithm(key, key),
+					512 => new ES512Algorithm(key, key),
+					_ => throw new DmdataAuthenticationException("この鍵長には対応していません: " + key.KeySize),
+				})
 				.AddHeader("jwk", new {
 					kty = "EC",
-					crv = "P-521",
+					crv = "P-" + key.KeySize,
 					x = Convert.ToBase64String(param.Q.X).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
 					y = Convert.ToBase64String(param.Q.Y).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
 				})
@@ -191,6 +248,8 @@ namespace DmdataSharp.Authentication.OAuth
 
 			if (accessToken is not null)
 				builder = builder.AddClaim("ath", Convert.ToBase64String(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(accessToken))).TrimEnd('=').Replace('+', '-').Replace('/', '_'));
+			if (nonce is not null)
+				builder = builder.AddClaim("nonce", nonce);
 
 			return builder.Encode();
 #endif

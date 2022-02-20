@@ -18,9 +18,10 @@ namespace Tests
 
 			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
 			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "gd.earthquake" };
+			OAuthRefreshTokenCredential credential;
 			try
 			{
-				var credential = await SimpleOAuthAuthenticator.AuthorizationAsync(
+				credential = await SimpleOAuthAuthenticator.AuthorizationAsync(
 					builder.HttpClient,
 					clientId,
 					scopes,
@@ -30,19 +31,17 @@ namespace Tests
 						Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
 					},
 					true);
-				builder = builder.UseOAuth(credential);
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine("認証に失敗しました\n" + ex);
 				return;
 			}
-			//.UseApiKey(apiKey)
-			//.UseOAuthClientCredential(
-			//	"CId...",
-			//	"CSt...",
-			//	new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "telegram.get.volcano", "telegram.get.weather", "telegram.get.scheduled" })
 
+			var introspect = await credential.IntrospectAsync();
+			Console.WriteLine("認可したアプリ: " + introspect.Aud);
+
+			builder = builder.UseOAuth(credential);
 
 			using var client = builder.Build<DmdataV2ApiClient>();
 			try
@@ -101,9 +100,9 @@ namespace Tests
 				Console.ReadLine();
 				await socket.DisconnectAsync();
 			}
-
-			if (client.Authenticator is OAuthAuthenticator authenticator)
-				await authenticator.Credential.RevokeRefreshTokenAsync();
+			Console.Write("リフレッシュトークンを無効化");
+			await credential.RevokeRefreshTokenAsync();
+			Console.WriteLine("しました");
 		}
 	}
 }

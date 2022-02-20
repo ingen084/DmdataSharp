@@ -60,7 +60,7 @@ namespace DmdataSharp.Authentication.OAuth
 
 		/// <summary>
 		/// 認可コードフローによってOAuth認可を得る
-		/// <para></para>
+		/// <para>まれにListenするポートの問題で <c>HttpListenerException</c> が発生することがあります。適切に対処してください。</para>
 		/// </summary>
 		/// <param name="client">リクエストに使用するHttpClient</param>
 		/// <param name="scopes">認可を求めるスコープ</param>
@@ -68,8 +68,8 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="title">認可後の画面に表示されるクライアント名</param>
 		/// <param name="openUrl">URLを開くロジック</param>
 		/// <param name="token">CancellationToken 任意のタイミングで処理を中断させたい場合必須</param>
-		/// <param name="useDpop">DPoPを使用するか</param>
-		/// <param name="listenPort">ポート</param>
+		/// <param name="useDpop">DPoPを使用するか ※まだ試験中の機能のため実験目的以外の利用は推奨しません</param>
+		/// <param name="listenPort">ポート 未指定の場合はランダム</param>
 		/// <returns>認可情報</returns>
 		public async static Task<OAuthRefreshTokenCredential> AuthorizationAsync(
 			HttpClient client,
@@ -235,7 +235,7 @@ namespace DmdataSharp.Authentication.OAuth
 #if !NET472
 			if (useDpop)
 			{
-				dsa = ECDsa.Create(ECCurve.NamedCurves.nistP521);
+				dsa = ECDsa.Create(ECCurve.NamedCurves.nistP384);
 				OAuthRefreshTokenCredential.SetDpopJwtHeader(request, dsa, null);
 			}
 #endif
@@ -258,6 +258,10 @@ namespace DmdataSharp.Authentication.OAuth
 				throw new DmdataAuthenticationException("レスポンスからリフレッシュトークンを取得できません");
 			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
 				throw new DmdataAuthenticationException("レスポンスからアクセストークンを取得できません");
+
+			// DPoP-Nonceが存在する場合はそれを使用する
+			if (response.Headers.TryGetValues("DPoP-Nonce", out var nonce))
+				return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa, nonce.First());
 
 			return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa);
 		}

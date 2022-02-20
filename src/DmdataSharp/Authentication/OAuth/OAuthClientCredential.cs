@@ -1,4 +1,5 @@
-﻿using DmdataSharp.Exceptions;
+﻿using DmdataSharp.ApiResponses.V1;
+using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -72,6 +73,26 @@ namespace DmdataSharp.Authentication.OAuth
 		}
 
 		/// <summary>
+		/// リフレッシュトークンの詳細を取得する
+		/// </summary>
+		/// <returns></returns>
+		public async override Task<OAuthIntrospectResponse?> IntrospectAsync()
+		{
+			if (!TryGetAccessToken(out var token))
+				throw new DmdataAuthenticationException("アクセストークンを取得できません");
+			using var request = new HttpRequestMessage(HttpMethod.Post, INTROSPECT_ENDPOINT_URL);
+			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
+			{
+				{ "client_id", ClientId },
+				{ "client_secret", ClientSecret },
+				{ "token", token },
+			}!);
+
+			using var response = await Client.SendAsync(request);
+			return await JsonSerializer.DeserializeAsync<OAuthIntrospectResponse>(await response.Content.ReadAsStreamAsync());
+		}
+
+		/// <summary>
 		/// トークンの無効化
 		/// </summary>
 		/// <returns></returns>
@@ -92,6 +113,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンは存在しないため何もしない
 		/// </summary>
 		/// <returns></returns>
-		public override Task RevokeRefreshTokenAsync() => Task.CompletedTask;
+		public override Task RevokeRefreshTokenAsync() => throw new NotSupportedException("ClientCredentialではリフレッシュトークンを使用しません");
 	}
 }
