@@ -86,11 +86,7 @@ namespace DmdataSharp.Authentication.OAuth
 				throw new NotSupportedException(".NET Framework はDPoPに対応していません");
 #endif
 			var cancellationToken = token ?? CancellationToken.None;
-			// ポートが指定されなかった場合ポートを探す
-			if (listenPort is not ushort lp && !TryFindUnusedPort(out lp))
-				throw new DmdataAuthenticationException("空きポートが見つかりません");
-
-			var listenPrefix = $"http://127.0.0.1:{lp}/";
+			var listenPrefix = $"http://127.0.0.1:";
 			var stateString = "";
 			var codeVerifierString = "";
 			var challengeCodeString = "";
@@ -111,18 +107,60 @@ namespace DmdataSharp.Authentication.OAuth
 				challengeCodeString = Convert.ToBase64String(s256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifierString))).Replace("=", "").Replace("+", "-").Replace("/", "_");
 			}
 
-			using (var listener = new HttpListener())
-			{
-				listener.Prefixes.Clear();
-				listener.Prefixes.Add(listenPrefix);
+			HttpListener? listener = null;
 
-				// リスナー開始
-				listener.Start();
+			if (listenPort is not ushort lp)
+			{
+				lp = 0;
+				// ポートが指定されなかった場合、最大10回まで空きポートを探す
+				foreach (var i in Enumerable.Range(0, 10))
+				{
+					if (!TryFindUnusedPort(out lp))
+						throw new DmdataAuthenticationException("空きポートが見つかりません");
+					try
+					{
+						listener = new HttpListener();
+						listener.Prefixes.Clear();
+						listener.Prefixes.Add(listenPrefix + lp + "/");
+						// リッスン開始
+						listener.Start();
+						break;
+					}
+					catch (HttpListenerException)
+					{
+						listener?.Close();
+						listener = null;
+					}
+				}
+				if (listener is null)
+					throw new DmdataAuthenticationException("空きポートが見つかりません");
+			}
+			else
+			{
+				// ポートが指定されていた場合
+				try
+				{
+					listener = new HttpListener();
+					listener.Prefixes.Clear();
+					listener.Prefixes.Add(listenPrefix + lp + "/");
+					// リッスン開始
+					listener.Start();
+				}
+				catch (HttpListenerException)
+				{
+					listener?.Close();
+					listener = null;
+					throw;
+				}
+			}
+
+			using (listener)
+			{
 				openUrl($"{OAuthCredential.AUTH_ENDPOINT_URL}?" + await new FormUrlEncodedContent(new Dictionary<string, string>()
 				{
 					{ "client_id", clientId },
 					{ "response_type", "code" },
-					{ "redirect_uri", listenPrefix },
+					{ "redirect_uri", listenPrefix + lp + "/" },
 					{ "response_mode", "query" },
 					{ "scope", string.Join(" ", scopes) },
 					{ "state", stateString },
@@ -228,7 +266,7 @@ namespace DmdataSharp.Authentication.OAuth
 				{ "client_id", clientId },
 				{ "grant_type", "authorization_code" },
 				{ "code", authorizationCode },
-				{ "redirect_uri", listenPrefix },
+				{ "redirect_uri", listenPrefix + lp + "/" },
 				{ "code_verifier", codeVerifierString },
 			}!);
 

@@ -136,13 +136,14 @@ namespace DmdataSharp
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
-				var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r, HttpCompletionOption.ResponseHeadersRead)); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				// サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r, HttpCompletionOption.ResponseHeadersRead));
 				switch (response.StatusCode)
 				{
 					case System.Net.HttpStatusCode.Forbidden:
-						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+						throw new DmdataForbiddenException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
 					case System.Net.HttpStatusCode.Unauthorized:
-						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
+						throw new DmdataUnauthorizedException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
 #if !NET5_0
 					case (System.Net.HttpStatusCode)429:
 #else

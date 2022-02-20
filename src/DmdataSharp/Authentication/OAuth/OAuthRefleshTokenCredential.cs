@@ -110,14 +110,11 @@ namespace DmdataSharp.Authentication.OAuth
 			var response = await sendAsync(request);
 
 			// 新しいNonceを取得
-			string? newNonce = null;
 			if (response.Headers.TryGetValues("DPoP-Nonce", out var newNonces))
-				newNonce = newNonces.First();
-
-			// スレッドセーフにするため再送が完了するまで他のリクエストでは新しいNonceを使用させない
-			if (newNonce != null)
 			{
-				// 再送が必要な状況
+				var newNonce = newNonces.First();
+
+				// スレッドセーフにするため再送が完了するまで他のリクエストでは新しいNonceを使用させない
 				if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
 				{
 					// 不要になるのでdispose
@@ -238,21 +235,24 @@ namespace DmdataSharp.Authentication.OAuth
 				.AddHeader("jwk", new {
 					kty = "EC",
 					crv = "P-" + key.KeySize,
-					x = Convert.ToBase64String(param.Q.X).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
-					y = Convert.ToBase64String(param.Q.Y).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+					x = EncodeBase64Url(param.Q.X),
+					y = EncodeBase64Url(param.Q.Y),
 				})
-				.Id(Guid.NewGuid())
+				.Id(EncodeBase64Url(Guid.NewGuid().ToByteArray()))
 				.AddClaim("htm", request.Method.ToString())
 				.AddClaim("htu", $"{request.RequestUri.Scheme}://{request.RequestUri.Host}{request.RequestUri.AbsolutePath}")
 				.AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
 			if (accessToken is not null)
-				builder = builder.AddClaim("ath", Convert.ToBase64String(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(accessToken))).TrimEnd('=').Replace('+', '-').Replace('/', '_'));
+				builder = builder.AddClaim("ath", EncodeBase64Url(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(accessToken))));
 			if (nonce is not null)
 				builder = builder.AddClaim("nonce", nonce);
 
 			return builder.Encode();
 #endif
 		}
+
+		private static string EncodeBase64Url(byte[] original)
+			=> Convert.ToBase64String(original).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 	}
 }

@@ -4,6 +4,7 @@ using DmdataSharp.Authentication.OAuth;
 using DmdataSharp.Exceptions;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Tests
@@ -17,7 +18,7 @@ namespace Tests
 				.Referrer(new Uri("http://ingen084.net/"));
 
 			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
-			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake", "gd.earthquake" };
+			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.data", "telegram.get.earthquake", "gd.earthquake" };
 			OAuthRefreshTokenCredential credential;
 			try
 			{
@@ -47,13 +48,18 @@ namespace Tests
 			try
 			{
 				// 電文リストを10件取得してみる
-				var telegramList = await client.GetTelegramListAsync(limit: 10);
-				Console.WriteLine($"** 電文リスト **\n");
+				var telegramList = await client.GetTelegramListAsync(limit: 10, type: "VXSE");
+				Console.WriteLine($"** 電文リスト **");
 				foreach (var item in telegramList.Items)
 				{
 					Console.WriteLine($@"** {item.Head.Type} {item.ReceivedTime:yyyy/MM/dd HH:mm:ss} 
   Key: {item.Id}");
 				}
+				// 1件だけ電文を取得してみる
+				Console.WriteLine($"** 電文 **");
+				var fi = telegramList.Items.First();
+				var cont = await client.GetTelegramStringAsync(fi.Id);
+				Console.WriteLine($@"** {fi.Id} length:{cont.Length}");
 			}
 			catch (DmdataForbiddenException)
 			{
