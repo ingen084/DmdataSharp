@@ -69,7 +69,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="openUrl">URLを開くロジック</param>
 		/// <param name="token">CancellationToken 任意のタイミングで処理を中断させたい場合必須</param>
 		/// <param name="useDpop">DPoPを使用するか ※まだ試験中の機能のため実験目的以外の利用は推奨しません</param>
-		/// <param name="listenPort">ポート 未指定の場合はランダム</param>
+		/// <param name="listenPort">内部でホストするHTTPサーバーのポート 未指定の場合はランダム</param>
 		/// <returns>認可情報</returns>
 		public async static Task<OAuthRefreshTokenCredential> AuthorizationAsync(
 			HttpClient client,

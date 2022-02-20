@@ -4,6 +4,32 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 
 ![NuGet](https://img.shields.io/nuget/v/DmdataSharp?style=flat-square)
 
+## v0.4.0.0 からの変更点
+
+### 全体的
+
+- 主にDPoP対応のため内部構造を変更しています。
+
+### DmdataApiClientBuilder
+
+`UseOAuthClientCredential` , `UseOAuthRefreshToken` が非推奨となりました。  
+`UseOAuth` を使用してください。
+
+### SimpleOAuthAuthenticator
+
+- 直接認可情報( `OAuthRefreshTokenCredential` )を返すようになりました。
+   - それを `builder.UseOAuth` にセットして使用します。
+   - 保存した認可情報を使用する場合は `OAuthRefreshTokenCredential` のインスタンスを自分で作成してください。
+- ローカルホストにおけるリダイレクトURIのチェックの緩和に適応できるようにしました。
+- ポートの指定が動的に行えるようになりました。(がまれに `HttpListenerException` が発生するようにです。ご注意ください)
+- DPoP を使用した認証の開始に対応しました。鍵は自動で生成されます。
+
+### OAuth
+
+- DPoP に対応しています。
+  - この規格はまだドラフト段階にあるため広く公開するアプリケーションでの利用はまだ推奨しません。
+- 各Credentialクラスが Introspect API に対応しました。
+
 ## 情報取得のチュートリアル
 
 実装する際は必ずDM-D.S.Sのドキュメントを読みながら進めてください。
@@ -13,16 +39,15 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 ![img1](https://gyazo.ingen084.net/data/c74a6942c776dc7508d5901f10a98508.png)  
 DM-D.S.Sの管理画面からOAuthクライアントを作成します。
 
-![img2](https://gyazo.ingen084.net/data/0572a77450eb79c8c6b79a84e42bfd34.png)  
+![img2](https://gyazo.ingen084.net/data/eee94acafd1ab6b286ba333d74c4163b.png)  
 各項目を埋めます。注意点としては、
 
-- リダイレクトURIは `http://localhost/` を設定してください。
-- **URIは厳密に判定されており、大文字が使用できません。**
+- リダイレクトURIは **`http://127.0.0.1/`** を設定してください。
+- **各URIは厳密に判定されており、大文字が使用できません。**
 - 認証周りについては以下のように設定してください。
   - クライアントの種類: `公開`
-    - 現状このライブラリは認可コードフロー+機密クライアントに対応していません。
+    - 現状このライブラリはインプリシットフローに対応していません。
   - 使用するフロー: `認可コードフロー/リフレッシュトークンフロー`
-
 
 ### 2. インスタンスを初期化する
 
@@ -46,27 +71,20 @@ var builder = DmdataApiClientBuilder.Default
 // using DmdataSharp.Authentication.OAuth;
 var clientId = "クライアントID";
 var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.get.earthquake" };
-try
-{
-    // 認可を得る
-    var (refreshToken, accessToken, accessTokenExpires) = await SimpleOAuthAuthenticator.AuthorizationAsync(
-        builder.HttpClient,
-        clientId,
-        scopes,
-        "DmdataSharp サンプルアプリケーション",
-        url => Process.Start(url),
-        "http://localhost:{好きなポート}/",
-        TimeSpan.FromMinutes(10));
 
-    // 得た資格情報を登録する(4の内容)
-    builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
-}
-catch (Exception ex)
-{
-    Console.WriteLine("認証に失敗しました\n" + ex);
-    return;
-}
+// 認可を得る
+var credential = await SimpleOAuthAuthenticator.AuthorizationAsync(
+	builder.HttpClient,
+	clientId,
+	scopes,
+	"DmdataSharp サンプルアプリケーション",
+	u =>
+	{
+		Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
+	});
 
+// 得た資格情報を登録する(4の内容)
+builder = builder.UseOAuth(credential);
 ```
 
 `{好きなポート}` の部分は好みで設定してください。  
@@ -75,31 +93,35 @@ catch (Exception ex)
 `AuthorizationAsync` の解説をしておきます。
 
 ```cs
-Task<(string refreshToken, string accessToken, DateTime accessTokenExpire)> AuthorizationAsync(
-    HttpClient client,      // 内部でAPIを呼ぶ際に使用するHttpClient 今回はBuilderで作成したHttpClientを使用します
-    string clientId,        // OAuthクライアントID
-    string[] scopes,        // 認可を求めるスコープ
-    string title,           // 認可時にブラウザ上に表示されるアプリケーション名
-    Action<string> openUrl, // URLが求められた際にブラウザを開くためのデリゲート
-    string listenPrefix,    // 内部でホストするHTTPサーバーのオプション 1で設定するリダイレクトURIと同じにしてください
-    TimeSpan timeout)       // 認可･戻るボタンが押されなかった場合失敗扱いにするまでの時間
+Task<OAuthRefreshTokenCredential> AuthorizationAsync(
+    HttpClient client,              // 内部でAPIを呼ぶ際に使用するHttpClient 今回はBuilderで作成したHttpClientを使用します
+    string clientId,                // OAuthクライアントID
+    string[] scopes,                // 認可を求めるスコープ
+    string title,                   // 認可時にブラウザ上に表示されるアプリケーション名
+    Action<string> openUrl,         // URLが求められた際にブラウザを開くためのデリゲート
+    bool useDpop = true,            // DPoPを使用するか ※まだ試験中の機能のため実験目的以外の利用は推奨しません
+    CancellationToken? token = null,// 認可フロー自体の CancellationToken 指定した場合中断させることができる
+    ushort? listenPort = null)      // 内部でホストするHTTPサーバーのポート 未指定の場合はランダム
 ```
 
 #### 内部でホストするHTTPサーバーについて
 
 この認可フローはWebブラウザを使用した方式であるため、認可ボタンを押した後ライブラリ内で建てたHTTPサーバーにリダイレクトすることでトークンの取得を行います。  
-ファイアウォールの確認画面が表示されてしまうため、基本 `localhost` でポートもなるべく大きなもの(1024以上)を使用してください。外部に何かを公開してしまうというものではありません。
+尚、まれにListenするポートの問題で `HttpListenerException` が発生することがあります。リトライを行うなど、適当に対処してください。
 
 ### 4. 資格情報を登録する
 
 作成していたBuilderに3で取得した資格情報の登録を行います(3のコード内に含まれています)。  
-リフレッシュトークンは長期間使用することができるため、起動のたびにブラウザを開かないようにするためにも、アプリケーションに組み込むときは保存しておくとよいでしょう。  
+リフレッシュトークンは長期間使用することができるため、起動のたびにブラウザを開かないようにするためにも、アプリケーションに組み込むときは保存しておくとよいでしょう。
+
+保存したリフレッシュトークンなどを使用したい場合、 `OAuthRefreshTokenCredential` のコンストラクタに指定します。  
+クライアント・クレデンシャルフローを使用する場合も同様に `OAuthClientCredential` のコンストラクタにクライアントID･シークレットを指定します。
 
 ```cs
-builder = builder.UseOAuthRefreshToken(clientId, scopes, refreshToken, accessToken, accessTokenExpires);
+builder = builder.UseOAuth(credential);
 ```
 
-`accessToken` `accessTokenExpires` は必須ではありません(API実行時に自動で更新されます)。
+なお、この認可情報についてはトークンの無効化などで使用するため変数として保持しておくようにしましょう。
 
 ### 5. APIクライアントを作成する
 
@@ -164,14 +186,12 @@ var title = document.Root.XPathSelectElement("/jmx:Report/jmx:Control/jmx:Title"
 
 ### 8. アプリケーションの連携を解除する
 
-アプリケーションの連携を解除する際はリフレッシュトークンの失効が必要です。
+アプリケーションの連携を解除する際はリフレッシュトークンの失効が必要です。  
+3,4で作成した認可情報のインスタンスから失効を行います。
 
 ```cs
-if (client.Authenticator is OAuthAuthenticator authenticator)
-    await authenticator.Credential.RevokeRefreshTokenAsync();
+await credential.RevokeRefreshTokenAsync();
 ```
-
-(設計が微妙で苦しい処理になってます、ごめんなさい)
 
 ## WebSocketに接続する
 

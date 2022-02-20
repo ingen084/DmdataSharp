@@ -106,6 +106,7 @@ namespace DmdataSharp
 		/// <param name="clientSecret">クライアントシークレット</param>
 		/// <param name="scopes">認可を求めるスコープ</param>
 		/// <returns></returns>
+		[Obsolete("廃止予定です。UseOAuthを利用してください")]
 		public DmdataApiClientBuilder UseOAuthClientCredential(string clientId, string clientSecret, string[] scopes)
 		{
 			Authenticator = new OAuthAuthenticator(new OAuthClientCredential(HttpClient, scopes, clientId, clientSecret));
@@ -122,6 +123,7 @@ namespace DmdataSharp
 		/// <param name="accessTokenExpire">アクセストークンの有効期限</param>
 		/// <param name="dpopKey">DPoPに使用する公開鍵と秘密鍵のペア nullの場合DPoPは使用されない</param>
 		/// <returns></returns>
+		[Obsolete("廃止予定です。UseOAuthを利用してください")]
 		public DmdataApiClientBuilder UseOAuthRefreshToken(string clientId, string[] scopes, string refreshToken, string? accessToken, DateTime? accessTokenExpire, ECDsa? dpopKey)
 		{
 			Authenticator = new OAuthAuthenticator(new OAuthRefreshTokenCredential(HttpClient, scopes, clientId, refreshToken, accessToken, accessTokenExpire, dpopKey));
