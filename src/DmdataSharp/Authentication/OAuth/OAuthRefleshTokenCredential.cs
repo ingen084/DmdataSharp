@@ -216,12 +216,8 @@ namespace DmdataSharp.Authentication.OAuth
 
 		private static string CreateDpopJwt(HttpRequestMessage request, ECDsa key, string? accessToken, string? nonce)
 		{
-			var param = key.ExportParameters(false);
-
 			if (request.RequestUri is null)
 				throw new DmdataAuthenticationException("リクエストURIが存在しません。");
-			if (param.Q.X is null || param.Q.Y is null)
-				throw new DmdataAuthenticationException("DPoPに使用する公開鍵のパラメータが取得できません");
 
 			var builder = JwtBuilder.Create()
 				.AddHeader(HeaderName.Type, "dpop+jwt")
@@ -232,12 +228,7 @@ namespace DmdataSharp.Authentication.OAuth
 					512 => new ES512Algorithm(key, key),
 					_ => throw new DmdataAuthenticationException("この鍵長には対応していません: " + key.KeySize),
 				})
-				.AddHeader("jwk", new {
-					kty = "EC",
-					crv = "P-" + key.KeySize,
-					x = EncodeBase64Url(param.Q.X),
-					y = EncodeBase64Url(param.Q.Y),
-				})
+				.AddHeader("jwk", GetJwkAnonObject(key))
 				.Id(EncodeBase64Url(Guid.NewGuid().ToByteArray()))
 				.AddClaim("htm", request.Method.ToString())
 				.AddClaim("htu", $"{request.RequestUri.Scheme}://{request.RequestUri.Host}{request.RequestUri.AbsolutePath}")
@@ -252,7 +243,30 @@ namespace DmdataSharp.Authentication.OAuth
 #endif
 		}
 
-		private static string EncodeBase64Url(byte[] original)
+		/// <summary>
+		/// JWKを表す匿名型を取得します
+		/// </summary>
+		/// <param name="key"></param>
+		/// <returns></returns>
+		public static object GetJwkAnonObject(ECDsa key)
+		{
+			var param = key.ExportParameters(false);
+			if (param.Q.X is null || param.Q.Y is null)
+				throw new DmdataAuthenticationException("DPoPに使用する公開鍵のパラメータが取得できません");
+			return new {
+				crv = "P-" + key.KeySize,
+				kty = "EC",
+				x = EncodeBase64Url(param.Q.X),
+				y = EncodeBase64Url(param.Q.Y),
+			};
+		}
+
+		/// <summary>
+		/// BASE64 URLエンコードを行う
+		/// </summary>
+		/// <param name="original">もととなるデータ</param>
+		/// <returns></returns>
+		public static string EncodeBase64Url(byte[] original)
 			=> Convert.ToBase64String(original).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 	}
 }

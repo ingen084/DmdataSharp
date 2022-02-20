@@ -156,7 +156,7 @@ namespace DmdataSharp.Authentication.OAuth
 
 			using (listener)
 			{
-				openUrl($"{OAuthCredential.AUTH_ENDPOINT_URL}?" + await new FormUrlEncodedContent(new Dictionary<string, string>()
+				var param = new Dictionary<string, string>()
 				{
 					{ "client_id", clientId },
 					{ "response_type", "code" },
@@ -166,7 +166,18 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "state", stateString },
 					{ "code_challenge", challengeCodeString },
 					{ "code_challenge_method", "S256" },
-				}!).ReadAsStringAsync());
+				};
+
+#if !NET472
+				if (useDpop)
+				{
+					dsa = ECDsa.Create(ECCurve.NamedCurves.nistP384);
+					var jwk = JsonSerializer.SerializeToUtf8Bytes(OAuthRefreshTokenCredential.GetJwkAnonObject(dsa));
+					param["dpop_jkt"] = OAuthRefreshTokenCredential.EncodeBase64Url(SHA256.Create().ComputeHash(jwk));
+				}
+#endif
+
+				openUrl($"{OAuthCredential.AUTH_ENDPOINT_URL}?" + await new FormUrlEncodedContent(param!).ReadAsStringAsync());
 				var mre = new ManualResetEvent(false);
 
 				cancellationToken.Register(() => mre.Set());
@@ -272,10 +283,7 @@ namespace DmdataSharp.Authentication.OAuth
 
 #if !NET472
 			if (useDpop)
-			{
-				dsa = ECDsa.Create(ECCurve.NamedCurves.nistP384);
 				OAuthRefreshTokenCredential.SetDpopJwtHeader(request, dsa, null);
-			}
 #endif
 
 			using var response = await client.SendAsync(request);
