@@ -42,16 +42,16 @@ namespace DmdataSharp.Authentication.OAuth
 		}
 
 		/// <summary>
-		/// OAuth認証を行う
+		/// 認可コードフローによってOAuth認可を得る
 		/// </summary>
 		/// <param name="client">リクエストに使用するHttpClient</param>
 		/// <param name="scopes">認可を求めるスコープ</param>
 		/// <param name="clientId">認可を求めるクライアントID</param>
 		/// <param name="title">認可後の画面に表示されるクライアント名</param>
 		/// <param name="openUrl">URLを開くロジック</param>
-		/// <param name="token">CancellationToken</param>
-		/// <param name="useDpop">ポート</param>
-		/// <param name="listenPort"></param>
+		/// <param name="token">CancellationToken 任意のタイミングで処理を中断させたい場合必須</param>
+		/// <param name="useDpop">DPoPを使用するか</param>
+		/// <param name="listenPort">ポート</param>
 		/// <returns></returns>
 		public async static Task<OAuthRefreshTokenCredential> AuthorizationAsync(
 			HttpClient client,
@@ -126,11 +126,29 @@ namespace DmdataSharp.Authentication.OAuth
 
 							response.ContentType = "text/html";
 
+							// pathを確認
+							switch (request.Url?.AbsolutePath)
+							{
+								// 問題ないものは素通し
+								case "/":
+								case null:
+									break;
+								case "/cancel":
+									response.StatusCode = (int)HttpStatusCode.OK;
+									WriteResponseHtml(response.OutputStream, title, "認証をキャンセルしました。このタブは閉じても問題ありません。", true);
+									response.Close();
+									return;
+								default:
+									response.StatusCode = (int)HttpStatusCode.NotFound;
+									WriteResponseHtml(response.OutputStream, title, "404 Not Found", false);
+									response.Close();
+									continue;
+							}
 							// methodを確認
 							if (request.HttpMethod != "GET")
 							{
-								response.StatusCode = (int)HttpStatusCode.NotFound;
-								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(invalid method)。認証し直してください。");
+								response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(invalid method)。認証し直してください。", false);
 								response.Close();
 								continue;
 							}
@@ -138,7 +156,7 @@ namespace DmdataSharp.Authentication.OAuth
 							if (request.QueryString.Get("state") != stateString)
 							{
 								response.StatusCode = (int)HttpStatusCode.BadRequest;
-								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(state mismatch)。認証し直してください。");
+								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(state mismatch)。認証し直してください。", false);
 								response.Close();
 								continue;
 							}
@@ -146,31 +164,34 @@ namespace DmdataSharp.Authentication.OAuth
 							if (request.QueryString.Get("error") is string err)
 							{
 								response.StatusCode = (int)HttpStatusCode.OK;
-								WriteResponseHtml(response.OutputStream, title, $"認証はキャンセルされました({err})。このタブは閉じても問題ありません。");
+								if (err == "cancel")
+									WriteResponseHtml(response.OutputStream, title, $"認証をキャンセルしました。このタブは閉じても問題ありません。", true);
+								else
+									WriteResponseHtml(response.OutputStream, title, $"認可されませんでした({err})。このタブは閉じても問題ありません。", true);
 								response.Close();
-
-								mre.Set();
 								return;
 							}
 
 							if (request.QueryString.Get("code") is not string code)
 							{
 								response.StatusCode = (int)HttpStatusCode.BadRequest;
-								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(code not set)。認証し直してください。");
+								WriteResponseHtml(response.OutputStream, title, "認証に失敗しました(code not set)。認証し直してください。", false);
 								response.Close();
 								continue;
 							}
 
 							// アクセストークンを取得
 							authorizationCode = code;
-							WriteResponseHtml(response.OutputStream, title, "認証が完了しました。このタブは閉じても問題ありません。");
+							WriteResponseHtml(response.OutputStream, title, "認可されました。このタブは閉じても問題ありません。", true);
 							response.Close();
-
-							mre.Set();
 							return;
 						}
 					}
 					catch (HttpListenerException) { }
+					finally
+					{
+						mre.Set();
+					}
 				}, cancellationToken);
 
 				// CancellationTokenが呼ばれるか処理が完了するまで待機する
@@ -221,12 +242,12 @@ namespace DmdataSharp.Authentication.OAuth
 
 			return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa);
 		}
-		private static void WriteResponseHtml(Stream stream, string title, string message)
+		private static void WriteResponseHtml(Stream stream, string title, string message, bool isSuccess)
 		{
-			var data = CreateResponseHtml(title, message);
+			var data = CreateResponseHtml(title, message, isSuccess);
 			stream.Write(data, 0, data.Length);
 		}
-		private static byte[] CreateResponseHtml(string title, string message)
+		private static byte[] CreateResponseHtml(string title, string message, bool isSuccess)
 			=> Encoding.UTF8.GetBytes($@"<!DOCTYPE html>
 <html>
 <head>
@@ -236,6 +257,7 @@ namespace DmdataSharp.Authentication.OAuth
 <body>
     <h1>{title}</h1>
     <p>{message}</p>
+	{(isSuccess ? "" : "<a href='/cancel'>認証をキャンセルする</a>")}
 </body>
 </html>");
 	}

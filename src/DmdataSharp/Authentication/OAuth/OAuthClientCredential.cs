@@ -12,7 +12,14 @@ namespace DmdataSharp.Authentication.OAuth
 	/// </summary>
 	public class OAuthClientCredential : OAuthCredential
 	{
-		private string ClientId { get; }
+		/// <summary>
+		/// クライアントID
+		/// </summary>
+		public string ClientId { get; }
+
+		/// <summary>
+		/// クライアントシークレット
+		/// </summary>
 		private string ClientSecret { get; }
 
 		/// <summary>
