@@ -20,19 +20,26 @@ namespace DmdataSharp.Authentication.OAuth
 		/// クライアントID
 		/// </summary>
 		public string ClientId { get; }
+
 		/// <summary>
 		/// リフレッシュトークン
 		/// </summary>
 		public string RefreshToken { get; }
+
 		/// <summary>
 		/// DPoPに使用する鍵
 		/// </summary>
 		public ECDsa? DpopKey { get; set; }
 
 		/// <summary>
+		/// DPoPで使用するNonce
+		/// </summary>
+		private string? DpopNonce { get; set; }
+
+		/// <summary>
 		/// 認可コード、リフレッシュトークンによる認証
 		/// </summary>
-		public OAuthRefreshTokenCredential(HttpClient client, string[] scopes, string clientId, string refreshToken, string? accessToken = null, DateTime? accessTokenExpire = null, ECDsa? dpopKey = null) : base(client, scopes)
+		public OAuthRefreshTokenCredential(HttpClient client, string[] scopes, string clientId, string refreshToken, string? accessToken = null, DateTime? accessTokenExpire = null, ECDsa? dpopKey = null, string? dpopNonce = null) : base(client, scopes)
 		{
 			ClientId = clientId ?? throw new ArgumentNullException(nameof(clientId));
 			RefreshToken = refreshToken ?? throw new ArgumentNullException(nameof(refreshToken));
@@ -43,6 +50,7 @@ namespace DmdataSharp.Authentication.OAuth
 				throw new NotSupportedException(".NET Framework はDPoPに対応していません");
 #endif
 			DpopKey = dpopKey;
+			DpopNonce = dpopNonce;
 		}
 
 		/// <summary>
@@ -59,7 +67,7 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "client_id", ClientId },
 					{ "grant_type", "refresh_token" },
 					{ "refresh_token", RefreshToken },
-				});
+				}!);
 				if (DpopKey != null)
 					SetDpopJwtHeader(request, DpopKey, null);
 
@@ -86,16 +94,18 @@ namespace DmdataSharp.Authentication.OAuth
 		}
 
 		/// <summary>
-		/// DPoPトークン･JWTを付与する
+		/// リクエストに認証情報を付与し、リクエストを実行します
 		/// </summary>
-		/// <param name="request">付与するリクエスト</param>
-		/// <returns>付与したリクエスト</returns>
-		public async override Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage request)
+		/// <param name="request">付与するHttpRequestMessage</param>
+		/// <param name="sendAsync">リクエストを送信するFunc</param>
+		/// <returns>レスポンス</returns>
+		public async override Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
 		{
 			if (DpopKey == null)
-				return await base.ProcessRequestMessageAsync(request);
+				return await base.ProcessRequestAsync(request, sendAsync);
+			// TODO: Nonce対応
 			SetDpopJwtHeader(request, DpopKey, await GetOrUpdateAccessTokenAsync());
-			return request;
+			return await sendAsync(request);
 		}
 
 
@@ -112,7 +122,7 @@ namespace DmdataSharp.Authentication.OAuth
 			{
 				{ "client_id", ClientId },
 				{ "token", token },
-			});
+			}!);
 			if (DpopKey != null)
 				SetDpopJwtHeader(request, DpopKey, null);
 
@@ -131,7 +141,7 @@ namespace DmdataSharp.Authentication.OAuth
 			{
 				{ "client_id", ClientId },
 				{ "token", RefreshToken },
-			});
+			}!);
 			if (DpopKey != null)
 				SetDpopJwtHeader(request, DpopKey, null);
 

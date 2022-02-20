@@ -10,11 +10,12 @@ namespace DmdataSharp.Authentication
 	public abstract class Authenticator : IDisposable
 	{
 		/// <summary>
-		/// リクエストに認証情報を付与します
+		/// リクエストに認証情報を付与し、リクエストを実行します
 		/// </summary>
-		/// <param name="message">付与するHttpRequestMessage</param>
-		/// <returns>付与されたHttpRequestMessage</returns>
-		public abstract Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message);
+		/// <param name="request">付与するHttpRequestMessage</param>
+		/// <param name="sendAsync">リクエストを送信するFunc</param>
+		/// <returns>レスポンス</returns>
+		public abstract Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync);
 
 		/// <summary>
 		/// エラーメッセージのフィルタリングを行います

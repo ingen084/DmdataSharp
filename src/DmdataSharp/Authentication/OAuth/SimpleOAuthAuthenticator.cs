@@ -26,11 +26,28 @@ namespace DmdataSharp.Authentication.OAuth
 		/// </summary>
 		/// <param name="port">TCPポート</param>
 		/// <returns>発見できたか</returns>
-		public static bool TryFindUnusedPort(out ushort port)
+		private static bool TryFindUnusedPort(out ushort port)
 		{
+			// エフェメラルポートの範囲
+			ushort min = 49152;
+			var max = ushort.MaxValue;
+
 			var props = IPGlobalProperties.GetIPGlobalProperties();
 			var conns = props.GetActiveTcpConnections();
-			for (ushort p = 49152; p <= ushort.MaxValue; p++)
+
+			var random = new Random();
+			// 100回まではランダムに探す
+			foreach (var i in Enumerable.Range(0, 100))
+			{
+				var p = (ushort)random.Next(min, max);
+				if (conns.Any(c => c.LocalEndPoint.Port == p))
+					continue;
+				port = p;
+				return true;
+			}
+
+			// 見つからなければ総当り
+			for (var p = min; p <= max; p++)
 			{
 				if (conns.Any(c => c.LocalEndPoint.Port == p))
 					continue;
@@ -43,6 +60,7 @@ namespace DmdataSharp.Authentication.OAuth
 
 		/// <summary>
 		/// 認可コードフローによってOAuth認可を得る
+		/// <para></para>
 		/// </summary>
 		/// <param name="client">リクエストに使用するHttpClient</param>
 		/// <param name="scopes">認可を求めるスコープ</param>
@@ -52,7 +70,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <param name="token">CancellationToken 任意のタイミングで処理を中断させたい場合必須</param>
 		/// <param name="useDpop">DPoPを使用するか</param>
 		/// <param name="listenPort">ポート</param>
-		/// <returns></returns>
+		/// <returns>認可情報</returns>
 		public async static Task<OAuthRefreshTokenCredential> AuthorizationAsync(
 			HttpClient client,
 			string clientId,
@@ -110,7 +128,7 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "state", stateString },
 					{ "code_challenge", challengeCodeString },
 					{ "code_challenge_method", "S256" },
-				}).ReadAsStringAsync());
+				}!).ReadAsStringAsync());
 				var mre = new ManualResetEvent(false);
 
 				cancellationToken.Register(() => mre.Set());
@@ -133,14 +151,15 @@ namespace DmdataSharp.Authentication.OAuth
 								case "/":
 								case null:
 									break;
-								case "/cancel":
+								// キャンセルはPOSTでのみ処理する
+								case "/cancel" when request.HttpMethod == "POST":
 									response.StatusCode = (int)HttpStatusCode.OK;
 									WriteResponseHtml(response.OutputStream, title, "認証をキャンセルしました。このタブは閉じても問題ありません。", true);
 									response.Close();
 									return;
 								default:
 									response.StatusCode = (int)HttpStatusCode.NotFound;
-									WriteResponseHtml(response.OutputStream, title, "404 Not Found", false);
+									WriteResponseHtml(response.OutputStream, title, "エンドポイントが見つかりません", false);
 									response.Close();
 									continue;
 							}
@@ -211,7 +230,7 @@ namespace DmdataSharp.Authentication.OAuth
 				{ "code", authorizationCode },
 				{ "redirect_uri", listenPrefix },
 				{ "code_verifier", codeVerifierString },
-			});
+			}!);
 
 #if !NET472
 			if (useDpop)
@@ -257,7 +276,7 @@ namespace DmdataSharp.Authentication.OAuth
 <body>
     <h1>{title}</h1>
     <p>{message}</p>
-	{(isSuccess ? "" : "<a href='/cancel'>認証をキャンセルする</a>")}
+	{(isSuccess ? "" : "<form method='post' action='/cancel' id='form'><a href='javascript:form.submit()'>認証をキャンセルする</a></form>")}
 </body>
 </html>");
 	}

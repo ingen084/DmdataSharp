@@ -33,22 +33,27 @@ namespace DmdataSharp.Authentication
 			=> message.Replace(ApiKey, "*API_KEY*");
 
 		/// <summary>
-		/// URLにAPIキーを付与します
+		/// リクエストに認証情報を付与し、リクエストを実行します
 		/// </summary>
-		/// <param name="message"></param>
-		/// <returns></returns>
-		public override Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
+		/// <param name="request">付与するHttpRequestMessage</param>
+		/// <param name="sendAsync">リクエストを送信するFunc</param>
+		/// <returns>レスポンス</returns>
+		public override Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
 		{
-			if (message.RequestUri is not Uri uri)
+			if (request.RequestUri is not Uri uri)
 				throw new DmdataException("リクエストURIがnullです");
 
 			// keyパラメータを付与する すでにGETパラメータが存在する場合は追加する
+#if NET472 || NETSTANDARD2_0
 			if (uri.ToString().Contains("?"))
-				message.RequestUri = new Uri(uri + "&key=" + ApiKey);
+#else
+			if (uri.ToString().Contains('?'))
+#endif
+				request.RequestUri = new Uri(uri + "&key=" + ApiKey);
 			else
-				message.RequestUri = new Uri(uri + "?key=" + ApiKey);
+				request.RequestUri = new Uri(uri + "?key=" + ApiKey);
 
-			return Task.FromResult(message);
+			return sendAsync(request);
 		}
 	}
 }

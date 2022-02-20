@@ -49,7 +49,7 @@ namespace DmdataSharp.Authentication.OAuth
 					{ "client_secret", ClientSecret },
 					{ "grant_type", "client_credentials" },
 					{ "scope", string.Join(" ", Scopes) },
-				}));
+				}!));
 				if (!response.IsSuccessStatusCode)
 				{
 					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
@@ -84,7 +84,7 @@ namespace DmdataSharp.Authentication.OAuth
 				{ "client_id", ClientId },
 				{ "client_secret", ClientSecret },
 				{ "token", token },
-			}));
+			}!));
 			if (!response.IsSuccessStatusCode)
 				throw new DmdataAuthenticationException("ClientCredential認証のアクセストークンの無効化に失敗しました ");
 		}

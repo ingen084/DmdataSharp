@@ -24,12 +24,13 @@ namespace DmdataSharp.Authentication.OAuth
 		}
 
 		/// <summary>
-		/// HttpRequestMessageに認証情報を付加します
+		/// リクエストに認証情報を付与し、リクエストを実行します
 		/// </summary>
-		/// <param name="message"></param>
-		/// <returns></returns>
-		public async override Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
-			=> await Credential.ProcessRequestMessageAsync(message);
+		/// <param name="request">付与するHttpRequestMessage</param>
+		/// <param name="sendAsync">リクエストを送信するFunc</param>
+		/// <returns>レスポンス</returns>
+		public override Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
+			=> Credential.ProcessRequestAsync(request, sendAsync);
 
 		/// <summary>
 		/// トークンを開放します

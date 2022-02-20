@@ -61,7 +61,7 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
-				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
+				using var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r));
 				switch (response.StatusCode)
 				{
 					case System.Net.HttpStatusCode.Forbidden:
@@ -99,7 +99,7 @@ namespace DmdataSharp
 				using var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Content = new StringContent(JsonSerializer.Serialize(body, typeof(TRequest)), Encoding.UTF8, "application/json");
 
-				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
+				using var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r));
 				switch (response.StatusCode)
 				{
 					case System.Net.HttpStatusCode.Forbidden:
@@ -140,7 +140,7 @@ namespace DmdataSharp
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Delete, url);
 
-				using var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request));
+				using var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r));
 				switch (response.StatusCode)
 				{
 					case System.Net.HttpStatusCode.Forbidden:

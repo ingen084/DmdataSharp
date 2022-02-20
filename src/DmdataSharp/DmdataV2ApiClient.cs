@@ -87,7 +87,7 @@ namespace DmdataSharp
 				parameterMap["formatMode"] = formatMode;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
+			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync());
 		}
 
 		/// <summary>
@@ -119,7 +119,7 @@ namespace DmdataSharp
 				parameterMap["cursorToken"] = cursorToken;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject<EarthquakeListResponse>($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap).ReadAsStringAsync());
+			return await GetJsonObject<EarthquakeListResponse>($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync());
 		}
 
 		/// <summary>

@@ -136,7 +136,7 @@ namespace DmdataSharp
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
-				var response = await HttpClient.SendAsync(await Authenticator.ProcessRequestMessageAsync(request), HttpCompletionOption.ResponseHeadersRead); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r, HttpCompletionOption.ResponseHeadersRead)); // サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
 				switch (response.StatusCode)
 				{
 					case System.Net.HttpStatusCode.Forbidden:

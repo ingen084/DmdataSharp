@@ -41,6 +41,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// 認可に使用するHttpClient
 		/// </summary>
 		protected HttpClient Client { get; }
+
 		/// <summary>
 		/// 認可を求めるスコープ
 		/// </summary>
@@ -50,10 +51,12 @@ namespace DmdataSharp.Authentication.OAuth
 		/// アクセストークン
 		/// </summary>
 		protected string? AccessToken { get; set; }
+
 		/// <summary>
 		/// アクセストークンの有効期限
 		/// </summary>
 		protected DateTime? AccessTokenExpire { get; set; }
+
 		/// <summary>
 		/// 現在保管されているアクセストークンが利用可能かどうか
 		/// </summary>
@@ -83,15 +86,18 @@ namespace DmdataSharp.Authentication.OAuth
 		}
 
 		/// <summary>
-		/// HttpRequestMessageに認証情報を付加します
+		/// リクエストに認証情報を付与し、リクエストを実行します
 		/// </summary>
-		/// <param name="message"></param>
-		/// <returns></returns>
-		public async virtual Task<HttpRequestMessage> ProcessRequestMessageAsync(HttpRequestMessage message)
+		/// <param name="request">付与するHttpRequestMessage</param>
+		/// <param name="sendAsync">リクエストを送信するFunc</param>
+		/// <returns>レスポンス</returns>
+		public async virtual Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
 		{
-			message.Headers.TryAddWithoutValidation("Authorization", "Bearer " + await GetOrUpdateAccessTokenAsync());
-			return message;
+			request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + await GetOrUpdateAccessTokenAsync());
+			return await sendAsync(request);
 		}
+
+		// TODO: introspect APIを叩けるようにする
 
 
 		/// <summary>
@@ -105,6 +111,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// </summary>
 		/// <returns></returns>
 		public abstract Task RevokeAccessTokenAsync();
+
 		/// <summary>
 		/// リフレッシュトークンを無効化する
 		/// </summary>
