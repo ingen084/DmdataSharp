@@ -77,7 +77,7 @@ namespace DmdataSharp.Authentication.OAuth
 			string[] scopes,
 			string title,
 			Action<string> openUrl,
-			bool useDpop = true,
+			bool useDpop = false,
 			CancellationToken? token = null,
 			ushort? listenPort = null)
 		{
