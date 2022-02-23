@@ -82,8 +82,10 @@ namespace DmdataSharp.Authentication.OAuth
 				var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
 				if (result == null)
 					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
-				if (result.TokenType != "Bearer")
+				if (DpopKey == null && result.TokenType != "Bearer")
 					throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
+				if (DpopKey != null && result.TokenType != "DPoP")
+					throw new DmdataAuthenticationException("DPoPトークン以外は処理できません");
 				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
 					throw new DmdataAuthenticationException("レスポンスからトークンを取得できません");
 
