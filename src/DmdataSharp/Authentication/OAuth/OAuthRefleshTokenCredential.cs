@@ -4,6 +4,7 @@ using JWT.Algorithms;
 using JWT.Builder;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -114,18 +115,42 @@ namespace DmdataSharp.Authentication.OAuth
 			// 新しいNonceを取得
 			if (response.Headers.TryGetValues("DPoP-Nonce", out var newNonces))
 			{
-				var newNonce = newNonces.First();
+				var newNonce = newNonces.FirstOrDefault();
 
 				// スレッドセーフにするため再送が完了するまで他のリクエストでは新しいNonceを使用させない
-				if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+				if (!string.IsNullOrWhiteSpace(newNonce) && response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
 				{
+					// 再送はできないのでインスタンスを作り直す
+					using var newRequest = new HttpRequestMessage(request.Method, request.RequestUri);
+					newRequest.Version = request.Version;
+					if (request.Content != null)
+					{
+						var ms = new MemoryStream();
+						await request.Content.CopyToAsync(ms);
+						ms.Position = 0;
+						newRequest.Content = new StreamContent(ms);
+						if (request.Content.Headers != null)
+							foreach (var h in request.Content.Headers)
+								newRequest.Content.Headers.Add(h.Key, h.Value);
+					}
+#if NETSTANDARD2_0 || NET472
+					foreach (var prop in request.Properties)
+						newRequest.Properties.Add(prop);
+#else
+					foreach (var prop in request.Options)
+						newRequest.Options.TryAdd(prop.Key, prop.Value);
+#endif
+					foreach (var header in request.Headers)
+						newRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);                   
+					
 					// 不要になるのでdispose
 					response.Dispose();
+					request.Dispose();
 
 					// 新しいNonceで再セット
-					SetDpopJwtHeader(request, DpopKey, await GetOrUpdateAccessTokenAsync(), newNonce);
+					SetDpopJwtHeader(newRequest, DpopKey, await GetOrUpdateAccessTokenAsync(), newNonce);
 					// 再送(1度までしか再送しない)
-					response = await sendAsync(request);
+					response = await sendAsync(newRequest);
 				}
 
 				// 再送が終了してから新しいNonceをセット
@@ -147,8 +172,6 @@ namespace DmdataSharp.Authentication.OAuth
 				{ "client_id", ClientId },
 				{ "token", RefreshToken },
 			}!);
-			if (DpopKey != null)
-				SetDpopJwtHeader(request, DpopKey, null);
 
 			using var response = await Client.SendAsync(request);
 			return await JsonSerializer.DeserializeAsync<OAuthIntrospectResponse>(await response.Content.ReadAsStreamAsync());
