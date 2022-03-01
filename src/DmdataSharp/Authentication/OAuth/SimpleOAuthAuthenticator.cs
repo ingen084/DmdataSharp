@@ -271,45 +271,58 @@ namespace DmdataSharp.Authentication.OAuth
 			if (string.IsNullOrWhiteSpace(authorizationCode) || cancellationToken.IsCancellationRequested)
 				throw new DmdataAuthenticationException("認証はキャンセルされました");
 
-			using var request = new HttpRequestMessage(HttpMethod.Post, OAuthCredential.TOKEN_ENDPOINT_URL);
-			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
+			async Task<HttpResponseMessage> SendRequestAsync(string? nonce)
 			{
-				{ "client_id", clientId },
-				{ "grant_type", "authorization_code" },
-				{ "code", authorizationCode },
-				{ "redirect_uri", listenPrefix + lp + "/" },
-				{ "code_verifier", codeVerifierString },
-			}!);
+				using var request = new HttpRequestMessage(HttpMethod.Post, OAuthCredential.TOKEN_ENDPOINT_URL)
+				{
+					Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
+					{
+						{ "client_id", clientId },
+						{ "grant_type", "authorization_code" },
+						{ "code", authorizationCode },
+						{ "redirect_uri", listenPrefix + lp + "/" },
+						{ "code_verifier", codeVerifierString },
+					}!)
+				};
 
 #if !NET472
-			if (useDpop)
-				OAuthRefreshTokenCredential.SetDpopJwtHeader(request, dsa, null);
+				if (useDpop)
+					OAuthRefreshTokenCredential.SetDpopJwtHeader(request, dsa!, null, nonce);
 #endif
-
-			using var response = await client.SendAsync(request);
-			if (!response.IsSuccessStatusCode)
-			{
-				var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
-				throw new DmdataAuthenticationException($"OAuth認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
+				return await client.SendAsync(request);
 			}
 
-			var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
-			if (result == null)
-				throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
-			if (!useDpop && result.TokenType != "Bearer")
-				throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
-			if (useDpop && result.TokenType != "DPoP")
-				throw new DmdataAuthenticationException("DPoP使用中はDPoPトークン以外は処理できません");
-			if (result.RefreshToken is not string refreshToken)
-				throw new DmdataAuthenticationException("レスポンスからリフレッシュトークンを取得できません");
-			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
-				throw new DmdataAuthenticationException("レスポンスからアクセストークンを取得できません");
+			string? nonce = null;
+			var response = await SendRequestAsync(null);
+			if (useDpop && !response.IsSuccessStatusCode && response.Headers.TryGetValues("DPoP-Nonce", out var nonces))
+			{
+				response.Dispose();
+				nonce = nonces.FirstOrDefault();
+				response = await SendRequestAsync(nonce);
+			}
 
-			// DPoP-Nonceが存在する場合はそれを使用する
-			if (response.Headers.TryGetValues("DPoP-Nonce", out var nonce))
-				return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa, nonce.First());
+			using (response)
+			{
+				if (!response.IsSuccessStatusCode)
+				{
+					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
+					throw new DmdataAuthenticationException($"OAuth認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
+				}
 
-			return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa);
+				var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
+				if (result == null)
+					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
+				if (!useDpop && result.TokenType != "Bearer")
+					throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
+				if (useDpop && result.TokenType != "DPoP")
+					throw new DmdataAuthenticationException("DPoP使用中はDPoPトークン以外は処理できません");
+				if (result.RefreshToken is not string refreshToken)
+					throw new DmdataAuthenticationException("レスポンスからリフレッシュトークンを取得できません");
+				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
+					throw new DmdataAuthenticationException("レスポンスからアクセストークンを取得できません");
+
+				return new(client, scopes, clientId, refreshToken, accessToken, DateTime.Now.AddSeconds(expiresIn), dsa, nonce);
+			}
 		}
 		private static void WriteResponseHtml(Stream stream, string title, string message, bool isSuccess)
 		{
