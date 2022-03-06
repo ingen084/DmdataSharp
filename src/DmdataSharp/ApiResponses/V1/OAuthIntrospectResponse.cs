@@ -1,10 +1,12 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Text.Json.Serialization;
 
 namespace DmdataSharp.ApiResponses.V1
 {
 	/// <summary>
 	/// OAuth v1 Introspect APIのレスポンス
 	/// </summary>
+	[Obsolete("廃止予定とのこと")]
 	public class OAuthIntrospectResponse
 	{
 		/// <summary>
