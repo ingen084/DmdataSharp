@@ -4,9 +4,22 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 
 ![NuGet](https://img.shields.io/nuget/v/DmdataSharp?style=flat-square)
 
+## v0.5.0.0 からの変更点
+
+### 廃止
+
+- V1 API系が廃止されました。
+- OAuth Introspect API の公開終了に伴い Obsolate 属性を付与しました。
+
+### 追加
+
+- **`DmdataApiErrorException` を追加しました。APIレスポンスがエラーの場合はこの例外が発生します。**
+- `DmdataV2ApiClient` に `AllowPararellRequest` プロパティを追加しました。
+  - デフォルトでは `false` のため実質並列リクエストが許可されなくなることになります。
+
 ## v0.4.0.0 からの変更点
 
-### 全体的
+### 全体
 
 - 主にDPoP対応のため内部構造を変更しています。
 
