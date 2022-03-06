@@ -76,6 +76,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンの詳細を取得する
 		/// </summary>
 		/// <returns></returns>
+		[Obsolete("廃止予定とのこと")]
 		public async override Task<OAuthIntrospectResponse?> IntrospectAsync()
 		{
 			if (!TryGetAccessToken(out var token))

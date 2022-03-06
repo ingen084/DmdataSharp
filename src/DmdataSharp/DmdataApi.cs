@@ -1,4 +1,5 @@
-﻿using DmdataSharp.Authentication;
+﻿using DmdataSharp.ApiResponses;
+using DmdataSharp.Authentication;
 using DmdataSharp.Exceptions;
 using System;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DmdataSharp
@@ -19,10 +21,31 @@ namespace DmdataSharp
 		/// HttpClient
 		/// </summary>
 		protected HttpClient HttpClient { get; }
+
+		/// <summary>
+		/// リクエストのタイムアウト時間
+		/// </summary>
+		public TimeSpan Timeout
+		{
+			get => HttpClient.Timeout;
+			set => HttpClient.Timeout = value;
+		}
+
 		/// <summary>
 		/// dmdataのAPI認証方法
 		/// </summary>
 		public Authenticator Authenticator { get; set; }
+
+		/// <summary>
+		/// 並列リクエストを許可するか
+		/// <para>サーバー負荷･レートリミットの原因となるため推奨しません。</para>
+		/// </summary>
+		public bool AllowPararellRequest { get; set; } = false;
+
+		/// <summary>
+		/// リクエストの並列化を阻止するためのMRE
+		/// </summary>
+		protected ManualResetEventSlim RequestMre { get; } = new(true);
 
 		/// <summary>
 		/// 指定したHttpClient･認証方法で初期化する
@@ -55,8 +78,16 @@ namespace DmdataSharp
 		/// <typeparam name="T">デシリアライズする型</typeparam>
 		/// <param name="url">使用するURL</param>
 		/// <returns></returns>
-		protected async Task<T> GetJsonObject<T>(string url)
+		protected async Task<T> GetJsonObject<T>(string url) where T : DmdataResponse
 		{
+			var apl = AllowPararellRequest;
+			if (!apl)
+			{
+				if (!RequestMre.IsSet && !await Task.Run(() => RequestMre.Wait(Timeout)))
+					throw new DmdataApiTimeoutException(url);
+				RequestMre.Reset();
+			}
+
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -71,16 +102,21 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				//if (!response.IsSuccessStatusCode)
-				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 
-				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is T r)
-					return r;
-				throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is not T r)
+					throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (r.Status != "ok")
+					throw new DmdataApiErrorException(r);
+				return r;
 			}
 			catch (TaskCanceledException)
 			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+				throw new DmdataApiTimeoutException(Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+			}
+			finally
+			{
+				if (!apl)
+					RequestMre.Set();
 			}
 		}
 
@@ -92,8 +128,16 @@ namespace DmdataSharp
 		/// <param name="url">使用するURL</param>
 		/// <param name="body">POSTするbody</param>
 		/// <returns></returns>
-		protected async Task<TResponse> PostJsonObject<TRequest, TResponse>(string url, TRequest body)
+		protected async Task<TResponse> PostJsonObject<TRequest, TResponse>(string url, TRequest body) where TResponse : DmdataResponse
 		{
+			var apl = AllowPararellRequest;
+			if (!apl)
+			{
+				if (!RequestMre.IsSet && !await Task.Run(() => RequestMre.Wait(Timeout)))
+					throw new DmdataApiTimeoutException(url);
+				RequestMre.Reset();
+			}
+
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -115,16 +159,21 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				//if (!response.IsSuccessStatusCode)
-				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
 
-				if (JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStringAsync()) is TResponse r)
-					return r;
-				throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStringAsync()) is not TResponse r)
+					throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (r.Status != "ok")
+					throw new DmdataApiErrorException(r);
+				return r;
 			}
 			catch (TaskCanceledException)
 			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+				throw new DmdataApiTimeoutException(Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+			}
+			finally
+			{
+				if (!apl)
+					RequestMre.Set();
 			}
 		}
 
@@ -134,8 +183,16 @@ namespace DmdataSharp
 		/// <typeparam name="T?">デシリアライズする型</typeparam>
 		/// <param name="url">使用するURL</param>
 		/// <returns></returns>
-		protected async Task<T?> DeleteJsonObject<T>(string url)
+		protected async Task<T?> DeleteJsonObject<T>(string url) where T : DmdataResponse
 		{
+			var apl = AllowPararellRequest;
+			if (!apl)
+			{
+				if (!RequestMre.IsSet && !await Task.Run(() => RequestMre.Wait(Timeout)))
+					throw new DmdataApiTimeoutException(url);
+				RequestMre.Reset();
+			}
+
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Delete, url);
@@ -147,7 +204,7 @@ namespace DmdataSharp
 						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
-#if !NET5_0
+#if !NET5_0 && !NET6_0
 					case (System.Net.HttpStatusCode)429:
 #else
 					case System.Net.HttpStatusCode.TooManyRequests:
@@ -156,18 +213,24 @@ namespace DmdataSharp
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
-				//if (!response.IsSuccessStatusCode)
-				//	throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+
 				var respString = await response.Content.ReadAsStringAsync();
 				if (string.IsNullOrWhiteSpace(respString))
 					return default;
-				if (JsonSerializer.Deserialize<T>(respString) is T r)
-					return r;
-				throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (JsonSerializer.Deserialize<T>(respString) is not T r)
+					throw new DmdataException("APIレスポンスをパースできませんでした");
+				if (r.Status != "ok")
+					throw new DmdataApiErrorException(r);
+				return r;
 			}
 			catch (TaskCanceledException)
 			{
-				throw new DmdataApiTimeoutException("dmdataへのリクエストにタイムアウトしました。 URL: " + Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+				throw new DmdataApiTimeoutException(Authenticator.FilterErrorMessage(url)); // ApiKeyは秘匿情報のため出力を行なわない
+			}
+			finally
+			{
+				if (!apl)
+					RequestMre.Set();
 			}
 		}
 

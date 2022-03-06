@@ -3,9 +3,13 @@ using DmdataSharp.ApiResponses.V2;
 using DmdataSharp.ApiResponses.V2.GroupedData;
 using DmdataSharp.ApiResponses.V2.Parameters;
 using DmdataSharp.Authentication;
+using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace DmdataSharp
@@ -13,7 +17,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdata API V2 のクライアント
 	/// </summary>
-	public class DmdataV2ApiClient : DmdataV1ApiClient
+	public class DmdataV2ApiClient : DmdataApi
 	{
 		/// <summary>
 		/// dmdataのAPI V2クライアントを初期化します
@@ -135,13 +139,85 @@ namespace DmdataSharp
 		/// 地震観測地点の情報を取得します
 		/// </summary>
 		/// <returns>地震観測地点の情報</returns>
-		public new Task<EarthquakeStationParameterResponse> GetEarthquakeStationParameterAsync()
+		public Task<EarthquakeStationParameterResponse> GetEarthquakeStationParameterAsync()
 			=> GetJsonObject<EarthquakeStationParameterResponse>("https://api.dmdata.jp/v2/parameter/earthquake/station");
 		/// <summary>
 		/// 津波観測地点の情報を取得します
 		/// </summary>
 		/// <returns>津波観測地点の情報</returns>
-		public new Task<TsunamiStationParameterResponse> GetTsunamiStationParameterAsync()
+		public Task<TsunamiStationParameterResponse> GetTsunamiStationParameterAsync()
 			=> GetJsonObject<TsunamiStationParameterResponse>("https://api.dmdata.jp/v2/parameter/tsunami/station");
+
+		/// <summary>
+		/// 電文のStreamを取得する
+		/// <para>各電文の種類に合わせた権限が必要です</para>
+		/// <para>StreamはかならずDisposeしてください！</para>
+		/// </summary>
+		/// <param name="telegramKey">取得する電文のID</param>
+		/// <returns>レスポンスのStream</returns>
+		public async Task<Stream> GetTelegramStreamAsync(string telegramKey)
+		{
+			var url = $"https://data.api.dmdata.jp/v1/{telegramKey}";
+
+			var apl = AllowPararellRequest;
+			if (!apl)
+			{
+				if (!RequestMre.IsSet && !await Task.Run(() => RequestMre.Wait(Timeout)))
+					throw new DmdataApiTimeoutException(url);
+				RequestMre.Reset();
+			}
+
+			try
+			{
+				using var request = new HttpRequestMessage(HttpMethod.Get, url);
+				// サイズのでかいファイルの可能性があるためHeader取得時点で制御を返してもらう
+				var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r, HttpCompletionOption.ResponseHeadersRead));
+				switch (response.StatusCode)
+				{
+					case System.Net.HttpStatusCode.Forbidden:
+						throw new DmdataForbiddenException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
+					case System.Net.HttpStatusCode.Unauthorized:
+						throw new DmdataUnauthorizedException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
+#if !NET5_0
+					case (System.Net.HttpStatusCode)429:
+#else
+					case System.Net.HttpStatusCode.TooManyRequests:
+#endif
+						throw new DmdataRateLimitExceededException(response.Headers.TryGetValues("Retry-After", out var retry) ? retry.FirstOrDefault() : null);
+					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
+						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
+				}
+				if (!response.IsSuccessStatusCode)
+					throw new DmdataException("ステータスコードが不正です: " + response.StatusCode);
+
+				return await response.Content.ReadAsStreamAsync();
+			}
+			catch (TaskCanceledException)
+			{
+				throw new DmdataApiTimeoutException(Authenticator.FilterErrorMessage(url));
+			}
+			finally
+			{
+				if (!apl)
+					RequestMre.Set();
+			}
+		}
+
+		/// <summary>
+		/// 電文のstringを取得する
+		/// <para>各電文の種類に合わせた権限が必要です</para>
+		/// </summary>
+		/// <param name="telegramKey">取得する電文のID</param>
+		/// <param name="encoding">stringにする際のエンコード nullの場合UTF8</param>
+		/// <returns>レスポンスのStream</returns>
+		public async Task<string> GetTelegramStringAsync(string telegramKey, Encoding? encoding = null)
+		{
+			using var stream = await GetTelegramStreamAsync(telegramKey);
+			using var memoryStream = new MemoryStream();
+
+			await stream.CopyToAsync(memoryStream);
+
+			return (encoding ?? Encoding.UTF8).GetString(memoryStream.ToArray());
+		}
 	}
 }

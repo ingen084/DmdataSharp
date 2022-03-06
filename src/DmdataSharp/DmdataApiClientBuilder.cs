@@ -142,17 +142,6 @@ namespace DmdataSharp
 		}
 
 		/// <summary>
-		/// API V1クライアントの初期化を行う
-		/// </summary>
-		/// <returns>API V1クライアントのインスタンス</returns>
-		[Obsolete("APIv1は廃止予定です")]
-		public DmdataV1ApiClient BuildV1ApiClient()
-		{
-			if (Authenticator is null)
-				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			return new DmdataV1ApiClient(HttpClient, Authenticator);
-		}
-		/// <summary>
 		/// API V2クライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V2クライアントのインスタンス</returns>
@@ -162,8 +151,9 @@ namespace DmdataSharp
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
 			return new DmdataV2ApiClient(HttpClient, Authenticator);
 		}
+
 		/// <summary>
-		/// API V2クライアントの初期化を行う
+		/// 任意のAPIクライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V2クライアントのインスタンス</returns>
 		public T Build<T>() where T : DmdataApi

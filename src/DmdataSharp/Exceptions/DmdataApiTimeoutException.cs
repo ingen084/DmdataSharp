@@ -6,11 +6,17 @@
 	public class DmdataApiTimeoutException : DmdataException
 	{
 		/// <summary>
+		/// リクエストしようとしたURL
+		/// </summary>
+		public string Url { get; }
+
+		/// <summary>
 		/// 例外を初期化する
 		/// </summary>
-		/// <param name="message"></param>
-		public DmdataApiTimeoutException(string message) : base(message)
+		/// <param name="url">リクエストしようとしたURL</param>
+		public DmdataApiTimeoutException(string url) : base("dmdataへのリクエストにタイムアウトしました。 URL: " + url)
 		{
+			Url = url;
 		}
 	}
 }

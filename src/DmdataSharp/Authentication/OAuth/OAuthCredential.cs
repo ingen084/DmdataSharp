@@ -25,6 +25,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <summary>
 		/// 権限チェックエンドポイント
 		/// </summary>
+		[Obsolete("廃止予定とのこと")]
 		public const string INTROSPECT_ENDPOINT_URL = "https://manager.dmdata.jp/account/oauth2/v1/introspect";
 
 		/// <summary>
@@ -108,6 +109,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// リフレッシュトークンの詳細を取得する
 		/// </summary>
 		/// <returns></returns>
+		[Obsolete("廃止予定とのこと")]
 		public abstract Task<OAuthIntrospectResponse?> IntrospectAsync();
 
 		/// <summary>
