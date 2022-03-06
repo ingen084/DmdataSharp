@@ -6,7 +6,7 @@ namespace DmdataSharp.Exceptions
 	/// <summary>
 	/// dmdataのAPIでエラーが発生した場合
 	/// </summary>
-	public class DmdataApiErrorException : Exception
+	public class DmdataApiErrorException : DmdataException
 	{
 		/// <summary>
 		/// リクエストID
@@ -32,7 +32,7 @@ namespace DmdataSharp.Exceptions
 		/// 例外を初期化する
 		/// </summary>
 		/// <param name="response">元にするレスポンス</param>
-		public DmdataApiErrorException(DmdataResponse response)
+		public DmdataApiErrorException(DmdataResponse response) : base($"APIエラーが発生しました。 code:{response.Error?.Code} message:{response.Error?.Message}")
 		{
 			ResponseId = response.ResponseId;
 			ResponseTime = response.ResponseTime;
