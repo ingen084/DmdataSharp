@@ -117,4 +117,9 @@ namespace DmdataSharp.ApiResponses.V2.Parameters
 			public string Kana { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(EarthquakeStationParameterResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class EarthquakeStationParameterResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

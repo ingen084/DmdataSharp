@@ -110,4 +110,9 @@ namespace DmdataSharp.ApiResponses.V2
 			public bool Test { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(TelegramListResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class TelegramListResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

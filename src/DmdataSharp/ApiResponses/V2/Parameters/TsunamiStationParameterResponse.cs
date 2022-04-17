@@ -61,4 +61,9 @@ namespace DmdataSharp.ApiResponses.V2.Parameters
 			public string Longitude { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(TsunamiStationParameterResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class TsunamiStationParameterResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

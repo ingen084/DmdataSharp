@@ -1,5 +1,4 @@
-﻿using DmdataSharp.ApiResponses.V1;
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -22,11 +21,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// 失効エンドポイント
 		/// </summary>
 		public const string REVOKE_ENDPOINT_URL = "https://manager.dmdata.jp/account/oauth2/v1/revoke";
-		/// <summary>
-		/// 権限チェックエンドポイント
-		/// </summary>
-		[Obsolete("廃止予定とのこと")]
-		public const string INTROSPECT_ENDPOINT_URL = "https://manager.dmdata.jp/account/oauth2/v1/introspect";
 
 		/// <summary>
 		/// 認証情報を初期化する
@@ -104,13 +98,6 @@ namespace DmdataSharp.Authentication.OAuth
 		/// </summary>
 		/// <returns>Bearerトークンと有効期限</returns>
 		protected abstract Task<(int, string)> GetAccessTokenAsync();
-
-		/// <summary>
-		/// リフレッシュトークンの詳細を取得する
-		/// </summary>
-		/// <returns></returns>
-		[Obsolete("廃止予定とのこと")]
-		public abstract Task<OAuthIntrospectResponse?> IntrospectAsync();
 
 		/// <summary>
 		/// アクセストークンを無効化する

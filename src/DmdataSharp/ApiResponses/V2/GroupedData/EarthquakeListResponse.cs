@@ -316,4 +316,9 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 			public string Value { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(EarthquakeListResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class EarthquakeListResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -77,8 +78,9 @@ namespace DmdataSharp
 		/// </summary>
 		/// <typeparam name="T">デシリアライズする型</typeparam>
 		/// <param name="url">使用するURL</param>
+		/// <param name="jsonTypeInfo">レスポンスをデシリアライズするJsonTypeInfo</param>
 		/// <returns></returns>
-		protected async Task<T> GetJsonObject<T>(string url) where T : DmdataResponse
+		protected async Task<T> GetJsonObject<T>(string url, JsonTypeInfo<T> jsonTypeInfo) where T : DmdataResponse
 		{
 			var apl = AllowPararellRequest;
 			if (!apl)
@@ -103,7 +105,7 @@ namespace DmdataSharp
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
 
-				if (JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync()) is not T r)
+				if (JsonSerializer.Deserialize(await response.Content.ReadAsStringAsync(), jsonTypeInfo) is not T r)
 					throw new DmdataException("APIレスポンスをパースできませんでした");
 				if (r.Status != "ok")
 					throw new DmdataApiErrorException(r);
@@ -123,12 +125,14 @@ namespace DmdataSharp
 		/// <summary>
 		/// POSTリクエストを送信し、Jsonをデシリアライズした結果を取得します。
 		/// </summary>
-		/// <typeparam name="TRequest">リクエストをデシリアライズする型</typeparam>
+		/// <typeparam name="TRequest">リクエストをシリアライズする型</typeparam>
 		/// <typeparam name="TResponse">レスポンスをデシリアライズする型</typeparam>
 		/// <param name="url">使用するURL</param>
 		/// <param name="body">POSTするbody</param>
+		/// <param name="requestJsonTypeInfo">リクエスト型のJsonTypeInfo</param>
+		/// <param name="responseJsonTypeInfo">レスポンス型のJsonTypeInfo</param>
 		/// <returns></returns>
-		protected async Task<TResponse> PostJsonObject<TRequest, TResponse>(string url, TRequest body) where TResponse : DmdataResponse
+		protected async Task<TResponse> PostJsonObject<TRequest, TResponse>(string url, TRequest body, JsonTypeInfo<TRequest> requestJsonTypeInfo, JsonTypeInfo<TResponse> responseJsonTypeInfo) where TResponse : DmdataResponse
 		{
 			var apl = AllowPararellRequest;
 			if (!apl)
@@ -141,7 +145,7 @@ namespace DmdataSharp
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Post, url);
-				request.Content = new StringContent(JsonSerializer.Serialize(body, typeof(TRequest)), Encoding.UTF8, "application/json");
+				request.Content = new StringContent(JsonSerializer.Serialize(body, requestJsonTypeInfo), Encoding.UTF8, "application/json");
 
 				using var response = await Authenticator.ProcessRequestAsync(request, r => HttpClient.SendAsync(r));
 				switch (response.StatusCode)
@@ -160,7 +164,7 @@ namespace DmdataSharp
 						throw new DmdataException("サーバーエラーが発生しています。 StatusCode: " + response.StatusCode);
 				}
 
-				if (JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStringAsync()) is not TResponse r)
+				if (JsonSerializer.Deserialize(await response.Content.ReadAsStringAsync(), responseJsonTypeInfo) is not TResponse r)
 					throw new DmdataException("APIレスポンスをパースできませんでした");
 				if (r.Status != "ok")
 					throw new DmdataApiErrorException(r);
@@ -182,8 +186,9 @@ namespace DmdataSharp
 		/// </summary>
 		/// <typeparam name="T?">デシリアライズする型</typeparam>
 		/// <param name="url">使用するURL</param>
+		/// <param name="jsonTypeInfo">レスポンスをデシリアライズするJsonTypeInfo</param>
 		/// <returns></returns>
-		protected async Task<T?> DeleteJsonObject<T>(string url) where T : DmdataResponse
+		protected async Task<T?> DeleteJsonObject<T>(string url, JsonTypeInfo<T> jsonTypeInfo) where T : DmdataResponse
 		{
 			var apl = AllowPararellRequest;
 			if (!apl)
@@ -217,7 +222,7 @@ namespace DmdataSharp
 				var respString = await response.Content.ReadAsStringAsync();
 				if (string.IsNullOrWhiteSpace(respString))
 					return default;
-				if (JsonSerializer.Deserialize<T>(respString) is not T r)
+				if (JsonSerializer.Deserialize(respString, jsonTypeInfo) is not T r)
 					throw new DmdataException("APIレスポンスをパースできませんでした");
 				if (r.Status != "ok")
 					throw new DmdataApiErrorException(r);

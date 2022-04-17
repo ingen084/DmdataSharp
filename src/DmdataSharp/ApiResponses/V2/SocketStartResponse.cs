@@ -71,4 +71,9 @@ namespace DmdataSharp.ApiResponses.V2
 			public int Expiration { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(SocketStartResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class SocketStartResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

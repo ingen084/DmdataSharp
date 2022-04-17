@@ -32,7 +32,7 @@ namespace DmdataSharp
 		/// </summary>
 		/// <returns>契約中、未契約の情報リスト</returns>
 		public Task<ContractListResponse> GetContractListAsync()
-			=> GetJsonObject<ContractListResponse>("https://api.dmdata.jp/v2/contract");
+			=> GetJsonObject("https://api.dmdata.jp/v2/contract", ContractListResponseSerializerContext.Default.ContractListResponse);
 
 		/// <summary>
 		/// WebSocketに関するリストを取得する
@@ -40,7 +40,7 @@ namespace DmdataSharp
 		/// </summary>
 		/// <returns>WebSocketに関するリスト</returns>
 		public Task<SocketListResponse> GetSocketListAsync()
-			=> GetJsonObject<SocketListResponse>("https://api.dmdata.jp/v2/socket");
+			=> GetJsonObject("https://api.dmdata.jp/v2/socket", SocketListResponseSerializerContext.Default.SocketListResponse);
 		/// <summary>
 		/// WebSocket接続を開始するためのURLを取得する
 		/// <para>socket.start/取得する情報に合わせた各権限が必要です</para>
@@ -48,14 +48,14 @@ namespace DmdataSharp
 		/// <param name="param">接続開始のためのパラメータ</param>
 		/// <returns>リクエスト結果</returns>
 		public Task<SocketStartResponse> GetSocketStartAsync(SocketStartRequestParameter param)
-			=> PostJsonObject<SocketStartRequestParameter, SocketStartResponse>("https://api.dmdata.jp/v2/socket", param);
+			=> PostJsonObject("https://api.dmdata.jp/v2/socket", param, SocketStartRequestParameterSerializerContext.Default.SocketStartRequestParameter, SocketStartResponseSerializerContext.Default.SocketStartResponse);
 		/// <summary>
 		/// WebSocketに関するリストを取得する
 		/// <para>socket.close が必要です</para>
 		/// </summary>
 		/// <returns>成功した場合はnull 失敗した場合はレスポンス</returns>
 		public Task<SocketCloseResponse?> CloseSocketAsync(int id)
-			=> DeleteJsonObject<SocketCloseResponse>("https://api.dmdata.jp/v2/socket/" + id);
+			=> DeleteJsonObject("https://api.dmdata.jp/v2/socket/" + id, SocketCloseResponseSerializerContext.Default.SocketCloseResponse);
 
 		/// <summary>
 		/// 電文リストを取得する
@@ -91,7 +91,7 @@ namespace DmdataSharp
 				parameterMap["formatMode"] = formatMode;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject<TelegramListResponse>($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync());
+			return await GetJsonObject($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), TelegramListResponseSerializerContext.Default.TelegramListResponse);
 		}
 
 		/// <summary>
@@ -123,7 +123,7 @@ namespace DmdataSharp
 				parameterMap["cursorToken"] = cursorToken;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject<EarthquakeListResponse>($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync());
+			return await GetJsonObject($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EarthquakeListResponseSerializerContext.Default.EarthquakeListResponse);
 		}
 
 		/// <summary>
@@ -133,20 +133,20 @@ namespace DmdataSharp
 		/// <param name="eventId">地震情報のEventID</param>
 		/// <returns>地震イベントの詳細</returns>
 		public Task<EarthquakeEventResponse> GetEarthquakeEventAsync(string eventId)
-			=> GetJsonObject<EarthquakeEventResponse>($"https://api.dmdata.jp/v2/gd/earthquake/" + eventId);
+			=> GetJsonObject($"https://api.dmdata.jp/v2/gd/earthquake/" + eventId, EarthquakeEventResponseSerializerContext.Default.EarthquakeEventResponse);
 
 		/// <summary>
 		/// 地震観測地点の情報を取得します
 		/// </summary>
 		/// <returns>地震観測地点の情報</returns>
 		public Task<EarthquakeStationParameterResponse> GetEarthquakeStationParameterAsync()
-			=> GetJsonObject<EarthquakeStationParameterResponse>("https://api.dmdata.jp/v2/parameter/earthquake/station");
+			=> GetJsonObject("https://api.dmdata.jp/v2/parameter/earthquake/station", EarthquakeStationParameterResponseSerializerContext.Default.EarthquakeStationParameterResponse);
 		/// <summary>
 		/// 津波観測地点の情報を取得します
 		/// </summary>
 		/// <returns>津波観測地点の情報</returns>
 		public Task<TsunamiStationParameterResponse> GetTsunamiStationParameterAsync()
-			=> GetJsonObject<TsunamiStationParameterResponse>("https://api.dmdata.jp/v2/parameter/tsunami/station");
+			=> GetJsonObject("https://api.dmdata.jp/v2/parameter/tsunami/station", TsunamiStationParameterResponseSerializerContext.Default.TsunamiStationParameterResponse);
 
 		/// <summary>
 		/// 電文のStreamを取得する

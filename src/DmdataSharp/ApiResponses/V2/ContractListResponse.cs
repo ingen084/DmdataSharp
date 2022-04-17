@@ -79,4 +79,9 @@ namespace DmdataSharp.ApiResponses.V2
 			public int Month { get; set; }
 		}
 	}
+
+	[JsonSerializable(typeof(ContractListResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class ContractListResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

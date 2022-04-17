@@ -78,7 +78,7 @@ namespace DmdataSharp
 #if NET472 || NETSTANDARD2_0
 										new ArraySegment<byte>(
 #endif
-										JsonSerializer.SerializeToUtf8Bytes(new PingWebSocketMessage() { PingId = DateTime.Now.Ticks.ToString() })
+										JsonSerializer.SerializeToUtf8Bytes(new PingWebSocketMessage() { PingId = DateTime.Now.Ticks.ToString() }, WebSocketV2MessageSerializerContext.Default.PingWebSocketMessage)
 #if NET472 || NETSTANDARD2_0
 										)
 #endif
@@ -87,7 +87,10 @@ namespace DmdataSharp
 						true,
 						TokenSource?.Token ?? CancellationToken.None);
 				}
-				catch (Exception) { }
+				catch (Exception ex)
+				{
+					Debug.WriteLine($"Socket Send Error {ex}");
+				}
 			}, null, Timeout.Infinite, Timeout.Infinite);
 			WatchDogTimer = new Timer(_ =>
 			{
@@ -155,7 +158,7 @@ namespace DmdataSharp
 					{
 						Debug.WriteLine("WebSocketでBinaryのMessageTypeが飛んできました。");
 						await WebSocket.CloseAsync(WebSocketCloseStatus.InvalidMessageType, "DO NOT READ BINARY", token);
-						Disconnected?.Invoke(this, null);
+						Disconnected?.Invoke(this, EventArgs.Empty);
 						return;
 					}
 
@@ -166,7 +169,7 @@ namespace DmdataSharp
 						if (length >= buffer.Length)
 						{
 							await WebSocket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "TOO LONG MESSAGE", token);
-							Disconnected?.Invoke(this, null);
+							Disconnected?.Invoke(this, EventArgs.Empty);
 							return;
 						}
 						segment = new ArraySegment<byte>(buffer, length, buffer.Length - length);
@@ -181,19 +184,19 @@ namespace DmdataSharp
 
 					var messageString = Encoding.UTF8.GetString(buffer, 0, length);
 					Debug.WriteLine("resv: " + messageString);
-					var message = JsonSerializer.Deserialize<DmdataWebSocketMessage>(messageString);
+					var message = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.DmdataWebSocketMessage);
 					switch (message?.Type)
 					{
 						case "data":
-							var dataMessage = JsonSerializer.Deserialize<DataWebSocketMessage>(messageString);
+							var dataMessage = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.DataWebSocketMessage);
 							DataReceived?.Invoke(this, dataMessage);
 							break;
 						case "start":
-							var startMessage = JsonSerializer.Deserialize<StartWebSocketMessage>(messageString);
+							var startMessage = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.StartWebSocketMessage);
 							Connected?.Invoke(this, startMessage);
 							break;
 						case "error":
-							var errorMessage = JsonSerializer.Deserialize<ErrorWebSocketMessage>(messageString);
+							var errorMessage = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.ErrorWebSocketMessage);
 							Debug.WriteLine("エラーメッセージを受信しました。");
 							Error?.Invoke(this, errorMessage);
 							// 切断の場合はそのまま切断する
@@ -201,7 +204,7 @@ namespace DmdataSharp
 							{
 								Debug.WriteLine("切断要求のため切断扱いとします。");
 								await WebSocket.CloseAsync(WebSocketCloseStatus.Empty, null, token);
-								Disconnected?.Invoke(this, null);
+								Disconnected?.Invoke(this, EventArgs.Empty);
 								return;
 							}
 							break;
@@ -210,12 +213,12 @@ namespace DmdataSharp
 							break;
 						// pongを返す
 						case "ping":
-							var pingMessage = JsonSerializer.Deserialize<PingWebSocketMessage>(messageString);
+							var pingMessage = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.PingWebSocketMessage);
 							await WebSocket.SendAsync(
 #if NET472 || NETSTANDARD2_0
 									new ArraySegment<byte>(
 #endif
-									JsonSerializer.SerializeToUtf8Bytes(new PongWebSocketMessage(pingMessage))
+									JsonSerializer.SerializeToUtf8Bytes(new PongWebSocketMessage(pingMessage), WebSocketV2MessageSerializerContext.Default.PongWebSocketMessage)
 #if NET472 || NETSTANDARD2_0
 									)
 #endif

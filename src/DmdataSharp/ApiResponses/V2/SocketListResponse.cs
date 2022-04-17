@@ -88,4 +88,9 @@ namespace DmdataSharp.ApiResponses.V2
 		}
 
 	}
+
+	[JsonSerializable(typeof(SocketListResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class SocketListResponseSerializerContext : JsonSerializerContext
+	{
+	}
 }

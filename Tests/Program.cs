@@ -18,7 +18,7 @@ namespace Tests
 				.Referrer(new Uri("http://ingen084.net/"));
 
 			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
-			var scopes = new[] { "contract.list", "telegram.list", "socket.start", "telegram.data", "telegram.get.earthquake", "gd.earthquake" };
+			var scopes = new[] { "parameter.earthquake", "contract.list", "telegram.list", "socket.start", "telegram.data", "telegram.get.earthquake", "telegram.get.scheduled", "telegram.get.volcano", "telegram.get.weather", "gd.earthquake" };
 			OAuthRefreshTokenCredential credential;
 			try
 			{
@@ -39,14 +39,12 @@ namespace Tests
 				return;
 			}
 
-			var introspect = await credential.IntrospectAsync();
-			Console.WriteLine("認可したアプリ: " + introspect.Aud);
-
 			builder = builder.UseOAuth(credential);
 
 			using var client = builder.Build<DmdataV2ApiClient>();
 			try
 			{
+				var param = await client.GetEarthquakeStationParameterAsync();
 				// 電文リストを10件取得してみる
 				var telegramList = await client.GetTelegramListAsync(limit: 10, type: "VXSE");
 				Console.WriteLine($"** 電文リスト **");
@@ -86,26 +84,25 @@ namespace Tests
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
+			using var socket = new DmdataV2Socket(client);
+			socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
+			socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
+			socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
+			socket.DataReceived += (s, e) =>
 			{
-				var socket = new DmdataV2Socket(client);
-				socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
-				socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
-				socket.Error += (s, e) => Console.WriteLine("EVENT: error  c:" + e.Code + " e:" + e.Error);
-				socket.DataReceived += (s, e) =>
-				{
-					Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
+				Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
       body: {e.GetBodyString()[..20]}...");
-				};
-				await socket.ConnectAsync(new SocketStartRequestParameter(
-					TelegramCategoryV1.Earthquake
-				)
-				{
-					AppName = "DmdataSharp;Example",
-				});
+			};
+			await socket.ConnectAsync(new SocketStartRequestParameter(
+				TelegramCategoryV1.Earthquake, TelegramCategoryV1.Scheduled, TelegramCategoryV1.Volcano, TelegramCategoryV1.Weather
+			)
+			{
+				AppName = "DmdataSharp;Example",
+			});
 
-				Console.ReadLine();
-				await socket.DisconnectAsync();
-			}
+			Console.ReadLine();
+			await socket.DisconnectAsync();
+
 			Console.Write("リフレッシュトークンを無効化");
 			await credential.RevokeRefreshTokenAsync();
 			Console.WriteLine("しました");

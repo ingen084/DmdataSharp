@@ -1,8 +1,7 @@
 ﻿using DmdataSharp.Exceptions;
-using JWT.Algorithms;
-using JWT.Builder;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -172,7 +171,7 @@ namespace DmdataSharp.Authentication.OAuth
 				if (useDpop)
 				{
 					dsa = ECDsa.Create(ECCurve.NamedCurves.nistP384);
-					var jwk = JsonSerializer.SerializeToUtf8Bytes(OAuthRefreshTokenCredential.GetJwkAnonObject(dsa));
+					var jwk = JsonSerializer.SerializeToUtf8Bytes(new JsonWebKey(dsa), OAuthSerializerContext.Default.JsonWebKey);
 					param["dpop_jkt"] = OAuthRefreshTokenCredential.EncodeBase64Url(SHA256.Create().ComputeHash(jwk));
 				}
 #endif
@@ -255,7 +254,10 @@ namespace DmdataSharp.Authentication.OAuth
 							return;
 						}
 					}
-					catch (HttpListenerException) { }
+					catch (HttpListenerException ex)
+					{
+						Debug.WriteLine($"HttpListenerException {ex}");
+					}
 					finally
 					{
 						mre.Set();
@@ -305,11 +307,11 @@ namespace DmdataSharp.Authentication.OAuth
 			{
 				if (!response.IsSuccessStatusCode)
 				{
-					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
+					var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
 					throw new DmdataAuthenticationException($"OAuth認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
 				}
 
-				var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
+				var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse);
 				if (result == null)
 					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
 				if (!useDpop && result.TokenType != "Bearer")

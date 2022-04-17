@@ -1,7 +1,4 @@
-﻿using DmdataSharp.ApiResponses.V1;
-using DmdataSharp.Exceptions;
-using JWT.Algorithms;
-using JWT.Builder;
+﻿using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -77,10 +74,10 @@ namespace DmdataSharp.Authentication.OAuth
 				var response = await Client.SendAsync(request);
 				if (!response.IsSuccessStatusCode)
 				{
-					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
+					var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
 					throw new DmdataAuthenticationException($"アクセストークンの更新に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
 				}
-				var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
+				var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse);
 				if (result == null)
 					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
 				if (DpopKey == null && result.TokenType != "Bearer")
@@ -141,8 +138,8 @@ namespace DmdataSharp.Authentication.OAuth
 						newRequest.Options.TryAdd(prop.Key, prop.Value);
 #endif
 					foreach (var header in request.Headers)
-						newRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);                   
-					
+						newRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
 					// 不要になるのでdispose
 					response.Dispose();
 					request.Dispose();
@@ -158,24 +155,6 @@ namespace DmdataSharp.Authentication.OAuth
 			}
 
 			return response;
-		}
-
-		/// <summary>
-		/// リフレッシュトークンの詳細を取得する
-		/// </summary>
-		/// <returns></returns>
-		[Obsolete("廃止予定とのこと")]
-		public async override Task<OAuthIntrospectResponse?> IntrospectAsync()
-		{
-			using var request = new HttpRequestMessage(HttpMethod.Post, INTROSPECT_ENDPOINT_URL);
-			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
-			{
-				{ "client_id", ClientId },
-				{ "token", RefreshToken },
-			}!);
-
-			using var response = await Client.SendAsync(request);
-			return await JsonSerializer.DeserializeAsync<OAuthIntrospectResponse>(await response.Content.ReadAsStreamAsync());
 		}
 
 		/// <summary>
@@ -245,46 +224,35 @@ namespace DmdataSharp.Authentication.OAuth
 			if (request.RequestUri is null)
 				throw new DmdataAuthenticationException("リクエストURIが存在しません。");
 
-			var builder = JwtBuilder.Create()
-				.AddHeader(HeaderName.Type, "dpop+jwt")
-				.WithAlgorithm(key.KeySize switch
-				{
-					256 => new ES256Algorithm(key, key),
-					384 => new ES384Algorithm(key, key),
-					512 => new ES512Algorithm(key, key),
-					_ => throw new DmdataAuthenticationException("この鍵長には対応していません: " + key.KeySize),
-				})
-				.AddHeader("jwk", GetJwkAnonObject(key))
-				.Id(EncodeBase64Url(Guid.NewGuid().ToByteArray()))
-				.AddClaim("htm", request.Method.ToString())
-				.AddClaim("htu", $"{request.RequestUri.Scheme}://{request.RequestUri.Host}{request.RequestUri.AbsolutePath}")
-				.AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+			var id = EncodeBase64Url(Guid.NewGuid().ToByteArray());
 
-			if (accessToken is not null)
-				builder = builder.AddClaim("ath", EncodeBase64Url(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(accessToken))));
-			if (nonce is not null)
-				builder = builder.AddClaim("nonce", nonce);
-
-			return builder.Encode();
-#endif
-		}
-
-		/// <summary>
-		/// JWKを表す匿名型を取得します
-		/// </summary>
-		/// <param name="key"></param>
-		/// <returns></returns>
-		public static object GetJwkAnonObject(ECDsa key)
-		{
-			var param = key.ExportParameters(false);
-			if (param.Q.X is null || param.Q.Y is null)
-				throw new DmdataAuthenticationException("DPoPに使用する公開鍵のパラメータが取得できません");
-			return new {
-				crv = "P-" + key.KeySize,
-				kty = "EC",
-				x = EncodeBase64Url(param.Q.X),
-				y = EncodeBase64Url(param.Q.Y),
+			var sb = new StringBuilder();
+			sb.Append(EncodeBase64Url(JsonSerializer.SerializeToUtf8Bytes(
+				new JsonWebToken.JwtHeader("dpop+jwt", $"ES{key.KeySize}", new JsonWebKey(key)),
+				OAuthSerializerContext.Default.JwtHeader)));
+			sb.Append('.');
+			sb.Append(EncodeBase64Url(JsonSerializer.SerializeToUtf8Bytes(
+				new JsonWebToken.JwtClaim(
+					id,
+					request.Method.ToString(),
+					$"{request.RequestUri.Scheme}://{request.RequestUri.Host}{request.RequestUri.AbsolutePath}",
+					DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+					accessToken is null ? null : EncodeBase64Url(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(accessToken))),
+					nonce),
+				OAuthSerializerContext.Default.JwtClaim)));
+			var alg = key.KeySize switch
+			{
+				256 => HashAlgorithmName.SHA256,
+				384 => HashAlgorithmName.SHA384,
+				512 => HashAlgorithmName.SHA512,
+				_ => throw new DmdataAuthenticationException("この鍵長には対応していません: " + key.KeySize),
 			};
+			var signed = EncodeBase64Url(key.SignData(Encoding.ASCII.GetBytes(sb.ToString()), alg));
+			sb.Append('.');
+			sb.Append(signed);
+
+			return sb.ToString();
+#endif
 		}
 
 		/// <summary>

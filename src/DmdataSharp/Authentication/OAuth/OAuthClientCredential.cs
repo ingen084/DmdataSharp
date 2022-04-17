@@ -1,5 +1,4 @@
-﻿using DmdataSharp.ApiResponses.V1;
-using DmdataSharp.Exceptions;
+﻿using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -53,10 +52,10 @@ namespace DmdataSharp.Authentication.OAuth
 				}!));
 				if (!response.IsSuccessStatusCode)
 				{
-					var errorResponse = await JsonSerializer.DeserializeAsync<OAuthErrorResponse>(await response.Content.ReadAsStreamAsync());
+					var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
 					throw new DmdataAuthenticationException($"ClientCredential認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
 				}
-				var result = await JsonSerializer.DeserializeAsync<OAuthTokenResponse>(await response.Content.ReadAsStreamAsync());
+				var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse);
 				if (result == null)
 					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
 				if (result.TokenType != "Bearer")
@@ -70,27 +69,6 @@ namespace DmdataSharp.Authentication.OAuth
 			{
 				throw new DmdataAuthenticationException("ClientCredential認証に失敗しました", ex);
 			}
-		}
-
-		/// <summary>
-		/// リフレッシュトークンの詳細を取得する
-		/// </summary>
-		/// <returns></returns>
-		[Obsolete("廃止予定とのこと")]
-		public async override Task<OAuthIntrospectResponse?> IntrospectAsync()
-		{
-			if (!TryGetAccessToken(out var token))
-				throw new DmdataAuthenticationException("アクセストークンを取得できません");
-			using var request = new HttpRequestMessage(HttpMethod.Post, INTROSPECT_ENDPOINT_URL);
-			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
-			{
-				{ "client_id", ClientId },
-				{ "client_secret", ClientSecret },
-				{ "token", token },
-			}!);
-
-			using var response = await Client.SendAsync(request);
-			return await JsonSerializer.DeserializeAsync<OAuthIntrospectResponse>(await response.Content.ReadAsStreamAsync());
 		}
 
 		/// <summary>

@@ -56,4 +56,9 @@ namespace DmdataSharp.ApiParameters.V2
 		[JsonPropertyName("formatMode")]
 		public string FormatMode { get; set; } = "raw";
 	}
+
+	[JsonSerializable(typeof(SocketStartRequestParameter), GenerationMode = JsonSourceGenerationMode.Serialization)]
+	internal partial class SocketStartRequestParameterSerializerContext : JsonSerializerContext
+	{
+	}
 }
