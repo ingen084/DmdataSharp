@@ -262,10 +262,17 @@ namespace DmdataSharp
 		/// <returns></returns>
 		public Task DisconnectAsync()
 		{
-			if (!IsConnected || WebSocketConnectionTask == null)
+			try
+			{
+				if (!IsConnected || WebSocketConnectionTask == null)
+					return Task.CompletedTask;
+				TokenSource?.Cancel();
+				return WebSocketConnectionTask;
+			}
+			catch (TaskCanceledException)
+			{
 				return Task.CompletedTask;
-			TokenSource?.Cancel();
-			return WebSocketConnectionTask;
+			}
 		}
 
 		/// <summary>
