@@ -23,6 +23,14 @@ namespace DmdataSharp
 		/// 定時関連
 		/// </summary>
 		Scheduled,
+		/// <summary>
+		/// 緊急地震速報(予報)
+		/// </summary>
+		EewForecast,
+		/// <summary>
+		/// 緊急地震速報(警報)
+		/// </summary>
+		EewWarning,
 	}
 
 	/// <summary>
@@ -42,6 +50,8 @@ namespace DmdataSharp
 				TelegramCategoryV1.Volcano => "telegram.volcano",
 				TelegramCategoryV1.Weather => "telegram.weather",
 				TelegramCategoryV1.Scheduled => "telegram.scheduled",
+				TelegramCategoryV1.EewForecast => "eew.forecast",
+				TelegramCategoryV1.EewWarning => "eew.warning",
 				_ => throw new ArgumentException("存在しないパラメータを変換しようとしました", nameof(cat)),
 			};
 	}
