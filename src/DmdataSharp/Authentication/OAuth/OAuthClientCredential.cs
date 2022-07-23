@@ -1,6 +1,7 @@
 ﻿using DmdataSharp.Exceptions;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -61,7 +62,10 @@ namespace DmdataSharp.Authentication.OAuth
 				if (result.TokenType != "Bearer")
 					throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
 				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
-					throw new DmdataAuthenticationException("ClientCredential認証に失敗しました レスポンスからトークンを取得できません");
+					throw new DmdataAuthenticationException("ClientCredential認証に失敗しました レスポンスからアクセストークンを取得できません");
+				// スコープが足りてるか確認
+				if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
+					throw new DmdataAuthenticationException("ClientCredential認証に失敗しました アクセストークンのスコープが足りていません");
 
 				return (expiresIn, accessToken);
 			}

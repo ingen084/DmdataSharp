@@ -86,6 +86,9 @@ namespace DmdataSharp.Authentication.OAuth
 					throw new DmdataAuthenticationException("DPoPトークン以外は処理できません");
 				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
 					throw new DmdataAuthenticationException("レスポンスからトークンを取得できません");
+				// スコープが足りてるか確認
+				if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
+					throw new DmdataAuthenticationException("アクセストークンのスコープが足りていません");
 
 				return (expiresIn, accessToken);
 			}
