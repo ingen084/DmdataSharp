@@ -18,7 +18,7 @@ namespace Tests
 				.Referrer(new Uri("http://ingen084.net/"));
 
 			var clientId = "CId.XnvLvldE2-D9lxkLqsXikooQT9pURpYMSXqpQB57s6Rm";
-			var scopes = new[] { "parameter.earthquake", "contract.list", "telegram.list", "socket.start", "telegram.data", "telegram.get.earthquake", "telegram.get.scheduled", "telegram.get.volcano", "telegram.get.weather", "gd.earthquake" };
+			var scopes = new[] { "parameter.earthquake", "contract.list", "telegram.list", "socket.start", "telegram.data", "telegram.get.earthquake", "telegram.get.scheduled", "telegram.get.volcano", "telegram.get.weather", "gd.earthquake", "gd.eew" };
 			OAuthRefreshTokenCredential credential;
 			try
 			{
@@ -81,6 +81,25 @@ namespace Tests
 			{
 				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 gd.earthquake 権限が必要です。");
 			}
+
+			try
+			{
+				// 最新の緊急地震速報を10件取得
+				var events = await client.GetEewEventsAsync(limit: 10);
+				Console.WriteLine("** 最新の緊急地震速報 **");
+				foreach (var item in events.Items)
+				{
+					Console.WriteLine($"{item.DateTime:yyyy/MM/dd HH:mm:ss} {item.Id}({item.EventId}) {item.Earthquake.Hypocenter?.Name} 予想最大震度{item.Intensity.ForecastMaxInt.From}");
+					var ev = await client.GetEewEventAsync(item.EventId);
+					foreach (var t in ev.Items)
+						Console.WriteLine($"- {t.Telegrams.First().Id}");
+				}
+			}
+			catch (DmdataForbiddenException)
+			{
+				Console.WriteLine("APIキーが正しくないか、課金情報の取得ができませんでした。 gd.eew 権限が必要です。");
+			}
+
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
