@@ -16,6 +16,7 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 - **`DmdataApiErrorException` を追加しました。APIレスポンスがエラーの場合はこの例外が発生します。**
 - `DmdataV2ApiClient` に `AllowPararellRequest` プロパティを追加しました。
   - デフォルトでは `false` のため実質並列リクエストが許可されなくなることになります。
+- EEW GD APIを追加しました(thx! @iedred7584)
 
 ## v0.4.0.0 からの変更点
 
