@@ -136,6 +136,50 @@ namespace DmdataSharp
 			=> GetJsonObject($"https://api.dmdata.jp/v2/gd/earthquake/" + eventId, EarthquakeEventResponseSerializerContext.Default.EarthquakeEventResponse);
 
 		/// <summary>
+		/// 緊急地震速報イベント一覧を取得します
+		/// <para>gd.eew が必要です</para>
+		/// </summary>
+		/// <param name="datetimeFrom">検索する最終報発表日時の絞り込みに使う開始日時</param>
+		/// <param name="datetimeTo">検索する最終報発表日時の絞り込みに使う終了日時（この時刻は含まない）</param>
+		/// <param name="cursorToken">前回のレスポンスの値を入れると前回以降の新しい情報のみを取得できる</param>
+		/// <param name="limit">返す情報数を指定する 最大は100</param>
+		/// <returns>緊急地震速報イベント一覧</returns>
+		public async Task<EewListResponse> GetEewEventsAsync(
+			DateTime? datetimeFrom = null,
+			DateTime? datetimeTo = null,
+			string? cursorToken = null,
+			int? limit = 20
+			)
+		{
+			var parameterMap = new Dictionary<string, string?>();
+			if (datetimeFrom is DateTime dateTime)
+				parameterMap["date"] = dateTime.Date.ToString("yyyy-MM-dd");
+			if (datetimeFrom is DateTime || datetimeTo is DateTime)
+			{
+				var datetime = string.Empty;
+				if (datetimeFrom is DateTime dtFrom) datetime += $"{dtFrom:yyyy-MM-ddTHH:mm:ss}";
+				datetime += "~";
+				if (datetimeTo is DateTime dtTo) datetime += $"{dtTo:yyyy-MM-ddTHH:mm:ss}";
+				parameterMap["datetime"] = datetime;
+			}
+			if (!string.IsNullOrWhiteSpace(cursorToken))
+				parameterMap["cursorToken"] = cursorToken;
+			if (limit != 20)
+				parameterMap["limit"] = limit.ToString();
+
+			return await GetJsonObject("https://api.dmdata.jp/v2/gd/eew?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EewListResponseSerializerContext.Default.EewListResponse);
+		}
+
+		/// <summary>
+		/// 緊急地震速報イベントの詳細を取得します
+		/// <para>gd.eew が必要です</para>
+		/// </summary>
+		/// <param name="eventId">緊急地震速報のEventID</param>
+		/// <returns>緊急地震速報イベントの詳細</returns>
+		public Task<EewEventResponse> GetEewEventAsync(string eventId)
+			=> GetJsonObject($"https://api.dmdata.jp/v2/gd/eew/" + eventId, EewEventResponseSerializerContext.Default.EewEventResponse);
+
+		/// <summary>
 		/// 地震観測地点の情報を取得します
 		/// </summary>
 		/// <returns>地震観測地点の情報</returns>
