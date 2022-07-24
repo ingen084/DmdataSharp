@@ -5,68 +5,84 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 {
 #pragma warning disable CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
 	/// <summary>
-	/// GD Earthquake Event APIのレスポンス
+	/// GD Eew Event APIのレスポンス
 	/// </summary>
-	public class EarthquakeEventResponse : DmdataResponse
+	public class EewEventResponse : DmdataResponse
 	{
 		/// <summary>
-		/// 地震情報
+		/// アイテムリスト
 		/// </summary>
-		[JsonPropertyName("event")]
-		public EventData Event { get; set; }
+		[JsonPropertyName("items")]
+		public Item[] Items { get; set; }
+
 		/// <summary>
-		/// 地震情報
+		/// EEWアイテム
 		/// </summary>
-		public class EventData
+		public class Item
 		{
 			/// <summary>
-			/// ID
+			/// 受信ID
 			/// </summary>
 			[JsonPropertyName("id")]
 			public int Id { get; set; }
 			/// <summary>
-			/// 地震情報のEventID
+			/// 緊急地震速報のEventID
 			/// </summary>
 			[JsonPropertyName("eventId")]
 			public string EventId { get; set; }
 			/// <summary>
-			/// 地震発生時刻
-			/// 震度速報のみの場合はnull
+			/// EventIDに対するこの情報の情報番号
 			/// </summary>
-			[JsonPropertyName("originTime")]
-			public DateTime? OriginTime { get; set; }
+			[JsonPropertyName("serial")]
+			public int Serial { get; set; }
 			/// <summary>
-			/// 地震検知時刻
+			/// この情報を発表した時刻
 			/// </summary>
-			[JsonPropertyName("arrivalTime")]
-			public DateTime ArrivalTime { get; set; }
+			[JsonPropertyName("dateTime")]
+			public DateTime DateTime { get; set; }
 			/// <summary>
-			/// 震源要素
-			/// 震度速報のみの場合はnull
+			/// 最終であるかどうか
 			/// </summary>
-			[JsonPropertyName("hypocenter")]
-			public EarthquakeListResponse.Hypocenter? Hypocenter { get; set; }
+			[JsonPropertyName("isLastInfo")]
+			public bool IsLastInfo { get; set; }
 			/// <summary>
-			/// マグニチュード要素
-			/// 震度速報のみの場合はnull
+			/// 緊急地震速報を取り消されたかどうか
 			/// </summary>
-			[JsonPropertyName("magnitude")]
-			public EarthquakeListResponse.Magnitude? Magnitude { get; set; }
+			[JsonPropertyName("isCanceled")]
+			public bool IsCanceled { get; set; }
 			/// <summary>
-			/// 最大震度
-			/// 観測した震度がない場合はnull
+			/// この情報発表時、緊急地震速報の警報を発表されたかどうか
+			/// 取消時はnull
 			/// </summary>
-			[JsonPropertyName("maxInt")]
-			public string? MaxInt { get; set; }
+			[JsonPropertyName("isWarning")]
+			public bool? IsWarning { get; set; }
 			/// <summary>
-			/// 地震情報の電文リスト
+			/// 予測震源要素
+			/// 取消時はnull
+			/// </summary>
+			[JsonPropertyName("earthquake")]
+			public EewListResponse.Earthquake? Earthquake { get; set; }
+			/// <summary>
+			/// 予測震度要素
+			/// 取消時・震度未計算時はnull
+			/// </summary>
+			[JsonPropertyName("intensity")]
+			public EewListResponse.Intensity? Intensity { get; set; }
+			/// <summary>
+			/// フリーテキスト
+			/// 出現しない場合はnull
+			/// </summary>
+			[JsonPropertyName("text")]
+			public string? Text { get; set; }
+			/// <summary>
+			/// 緊急地震速報の電文リスト、配列中の要素は1個で固定
 			/// </summary>
 			[JsonPropertyName("telegrams")]
 			public Telegram[] Telegrams { get; set; }
 		}
 
 		/// <summary>
-		/// 地震情報の電文
+		/// 緊急地震速報の電文
 		/// </summary>
 		public class Telegram
 		{
@@ -87,7 +103,7 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 			public string OriginalId { get; set; }
 			/// <summary>
 			/// 配信区分
-			/// 常に telegram.earthquake のはず
+			/// 取りうる値は <c>eew.forecast</c>
 			/// </summary>
 			[JsonPropertyName("classification")]
 			public string Classification { get; set; }
@@ -110,19 +126,20 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 			/// 加工データのスキーマ情報
 			/// </summary>
 			[JsonPropertyName("schema")]
-			public Schema Schema { get; set; }
+			public EarthquakeEventResponse.Schema Schema { get; set; }
 			/// <summary>
 			/// bodyプロパティの表現形式
 			/// "xml"、"a/n"、"binary"は気象庁が定めたフォーマット、"json"はdmdataが独自に定めたフォーマット
 			/// </summary>
 			[JsonPropertyName("format")]
-			public string? Format { get; set; }
+			public string Format { get; set; }
 			/// <summary>
 			/// 電文本文URL
 			/// </summary>
 			[JsonPropertyName("url")]
 			public string Url { get; set; }
 		}
+
 		/// <summary>
 		/// ヘッダ情報
 		/// </summary>
@@ -147,7 +164,7 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 			/// 指示コード
 			/// </summary>
 			[JsonPropertyName("designation")]
-			public string? Designation { get; set; }
+			public object Designation { get; set; }
 			/// <summary>
 			/// 訓練、試験等のテスト等電文かどうか
 			/// 常にfalse
@@ -155,26 +172,10 @@ namespace DmdataSharp.ApiResponses.V2.GroupedData
 			[JsonPropertyName("test")]
 			public bool Test { get; set; }
 		}
-		/// <summary>
-		/// 加工データのスキーマ情報
-		/// </summary>
-		public class Schema
-		{
-			/// <summary>
-			/// スキーマ名
-			/// </summary>
-			[JsonPropertyName("type")]
-			public string Type { get; set; }
-			/// <summary>
-			/// スキーマのバージョン
-			/// </summary>
-			[JsonPropertyName("version")]
-			public string Version { get; set; }
-		}
 	}
 
-	[JsonSerializable(typeof(EarthquakeEventResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
-	internal partial class EarthquakeEventResponseSerializerContext : JsonSerializerContext
+	[JsonSerializable(typeof(EewEventResponse), GenerationMode = JsonSourceGenerationMode.Metadata)]
+	internal partial class EewEventResponseSerializerContext : JsonSerializerContext
 	{
 	}
 }
