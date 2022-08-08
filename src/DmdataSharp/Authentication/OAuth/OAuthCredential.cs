@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace DmdataSharp.Authentication.OAuth
@@ -89,7 +90,7 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <returns>レスポンス</returns>
 		public async virtual Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
 		{
-			request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + await GetOrUpdateAccessTokenAsync());
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetOrUpdateAccessTokenAsync());
 			return await sendAsync(request);
 		}
 

@@ -1,6 +1,7 @@
-﻿using DmdataSharp.Exceptions;
-using System;
+﻿using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace DmdataSharp.Authentication
@@ -40,19 +41,7 @@ namespace DmdataSharp.Authentication
 		/// <returns>レスポンス</returns>
 		public override Task<HttpResponseMessage> ProcessRequestAsync(HttpRequestMessage request, Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync)
 		{
-			if (request.RequestUri is not Uri uri)
-				throw new DmdataException("リクエストURIがnullです");
-
-			// keyパラメータを付与する すでにGETパラメータが存在する場合は追加する
-#if NET472 || NETSTANDARD2_0
-			if (uri.ToString().Contains("?"))
-#else
-			if (uri.ToString().Contains('?'))
-#endif
-				request.RequestUri = new Uri(uri + "&key=" + ApiKey);
-			else
-				request.RequestUri = new Uri(uri + "?key=" + ApiKey);
-
+			request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(ApiKey + ":")));
 			return sendAsync(request);
 		}
 	}
