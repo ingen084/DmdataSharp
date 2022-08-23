@@ -99,6 +99,8 @@ namespace DmdataSharp
 				{
 					case System.Net.HttpStatusCode.Forbidden:
 						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.PaymentRequired:
+						throw new DmdataNotValidContractException("有効な契約が存在しません。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode s when ((int)s / 100) == 5:
@@ -152,6 +154,8 @@ namespace DmdataSharp
 				{
 					case System.Net.HttpStatusCode.Forbidden:
 						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.PaymentRequired:
+						throw new DmdataNotValidContractException("有効な契約が存在しません。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
 #if !NET5_0
@@ -207,6 +211,8 @@ namespace DmdataSharp
 				{
 					case System.Net.HttpStatusCode.Forbidden:
 						throw new DmdataForbiddenException("権限がないもしくは不正な認証情報です。 URL: " + Authenticator.FilterErrorMessage(url));
+					case System.Net.HttpStatusCode.PaymentRequired:
+						throw new DmdataNotValidContractException("有効な契約が存在しません。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
 #if !NET5_0 && !NET6_0

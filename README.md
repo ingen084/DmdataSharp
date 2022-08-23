@@ -14,6 +14,7 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 ### 追加
 
 - **`DmdataApiErrorException` を追加しました。APIレスポンスがエラーの場合はこの例外が発生します。**
+- `DmdataNotValidContractException` を追加しました。認証情報は正しいが、情報を取得するための契約が存在しない場合に発生します。
 - `DmdataV2ApiClient` に `AllowPararellRequest` プロパティを追加しました。
   - デフォルトでは `false` のため実質並列リクエストが許可されなくなることになります。
 - EEW GD APIを追加しました(thx! @iedred7584)
@@ -327,6 +328,10 @@ APIキー認証の場合、メッセージにAPIキーが含まれている場�
 認証情報が不正です。  
 使用中の資格情報に権限がない場合などに発生します。  
 APIv1の場合はAPIキーが不正な場合もこの例外が発生します。
+
+### DmdataNotValidContractException
+
+認証情報は正しいが、情報を取得するための契約が存在しない場合に発生します。
 
 ### DmdataApiErrorException
 

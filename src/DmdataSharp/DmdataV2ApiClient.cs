@@ -220,9 +220,11 @@ namespace DmdataSharp
 				{
 					case System.Net.HttpStatusCode.Forbidden:
 						throw new DmdataForbiddenException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
+					case System.Net.HttpStatusCode.PaymentRequired:
+						throw new DmdataNotValidContractException("message:{await response.Content.ReadAsStringAsync()} URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException($"message:{await response.Content.ReadAsStringAsync()} URL: {Authenticator.FilterErrorMessage(url)}");
-#if !NET5_0
+#if !NET5_0 && !NET6_0
 					case (System.Net.HttpStatusCode)429:
 #else
 					case System.Net.HttpStatusCode.TooManyRequests:

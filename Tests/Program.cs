@@ -89,7 +89,7 @@ namespace Tests
 				Console.WriteLine("** 最新の緊急地震速報 **");
 				foreach (var item in events.Items)
 				{
-					Console.WriteLine($"{item.DateTime:yyyy/MM/dd HH:mm:ss} {item.Id}({item.EventId}) {item.Earthquake.Hypocenter?.Name} 予想最大震度{item.Intensity.ForecastMaxInt.From}");
+					Console.WriteLine($"{item.DateTime:yyyy/MM/dd HH:mm:ss} {item.Id}({item.EventId}) {item.Earthquake.Hypocenter?.Name} 予想最大震度{item.Intensity?.ForecastMaxInt.From}");
 					var ev = await client.GetEewEventAsync(item.EventId);
 					foreach (var t in ev.Items)
 						Console.WriteLine($"- {t.Telegrams.First().Id}");
@@ -112,9 +112,7 @@ namespace Tests
 				Console.WriteLine($@"EVENT: data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
       body: {e.GetBodyString()[..20]}...");
 			};
-			await socket.ConnectAsync(new SocketStartRequestParameter(
-				TelegramCategoryV1.Earthquake, TelegramCategoryV1.Scheduled, TelegramCategoryV1.Volcano, TelegramCategoryV1.Weather
-			)
+			await socket.ConnectAsync(new SocketStartRequestParameter(TelegramCategoryV1.Earthquake)
 			{
 				AppName = "DmdataSharp;Example",
 			});
