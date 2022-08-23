@@ -201,12 +201,7 @@ namespace DmdataSharp
 							Error?.Invoke(this, errorMessage);
 							// 切断の場合はそのまま切断する
 							if (errorMessage?.Close ?? false)
-							{
-								Debug.WriteLine("切断要求のため切断扱いとします。");
-								await WebSocket.CloseAsync(WebSocketCloseStatus.Empty, null, token);
-								Disconnected?.Invoke(this, EventArgs.Empty);
-								return;
-							}
+								TokenSource.Cancel();
 							break;
 						// 何もしない
 						case "pong":
