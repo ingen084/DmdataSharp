@@ -104,14 +104,18 @@ namespace DmdataSharp
 		/// WebSocketに接続する
 		/// </summary>
 		/// <param name="param">ソケット開始</param>
+		/// <param name="customHostName"><see href="https://dmdata.jp/docs/reference/api/v2/websocket#%E3%82%A8%E3%83%B3%E3%83%89%E3%83%9D%E3%82%A4%E3%83%B3%E3%83%88%E6%83%85%E5%A0%B1">地理冗長化のためなどに接続先のホスト名をカスタムする</see>場合</param>
 		/// <returns></returns>
-		public async Task ConnectAsync(SocketStartRequestParameter param)
+		public async Task ConnectAsync(SocketStartRequestParameter param, string? customHostName = null)
 		{
 			if (IsConnected)
 				throw new InvalidOperationException("すでにWebSocketに接続されています");
 
 			var resp = await ApiClient.GetSocketStartAsync(param);
-			await ConnectAsync(new Uri(resp.Websocket.Url));
+			var uri = new UriBuilder(resp.Websocket.Url);
+			if (customHostName != null)
+				uri.Host = customHostName;
+			await ConnectAsync(uri.Uri);
 		}
 		/// <summary>
 		/// WebSocketに接続する
@@ -147,7 +151,7 @@ namespace DmdataSharp
 					// エンドポイントCloseの場合、処理を中断
 					if (result.MessageType == WebSocketMessageType.Close)
 					{
-						Debug.WriteLine("WebSocketが切断されました。");
+						Debug.WriteLine("close message によりWebSocketが切断されました。");
 						await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token);
 						OnDisconnected();
 						return;

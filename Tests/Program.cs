@@ -115,7 +115,7 @@ namespace Tests
 			await socket.ConnectAsync(new SocketStartRequestParameter(TelegramCategoryV1.Earthquake)
 			{
 				AppName = "DmdataSharp;Example",
-			});
+			}, DmdataV2SocketEndpoints.Osaka);
 
 			Console.ReadLine();
 			await socket.DisconnectAsync();
