@@ -42,37 +42,29 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <returns></returns>
 		protected async override Task<(int, string)> GetAccessTokenAsync()
 		{
-			try
+			var response = await Client.PostAsync(TOKEN_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
 			{
-				var response = await Client.PostAsync(TOKEN_ENDPOINT_URL, new FormUrlEncodedContent(new Dictionary<string, string?>()
-				{
-					{ "client_id", ClientId },
-					{ "client_secret", ClientSecret },
-					{ "grant_type", "client_credentials" },
-					{ "scope", string.Join(" ", Scopes) },
-				}!));
-				if (!response.IsSuccessStatusCode)
-				{
-					var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
-					throw new DmdataAuthenticationException($"ClientCredential認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
-				}
-				var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse);
-				if (result == null)
-					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
-				if (result.TokenType != "Bearer")
-					throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
-				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
-					throw new DmdataAuthenticationException("ClientCredential認証に失敗しました レスポンスからアクセストークンを取得できません");
-				// スコープが足りてるか確認
-				if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
-					throw new DmdataAuthenticationException("ClientCredential認証に失敗しました アクセストークンのスコープが足りていません");
+				{ "client_id", ClientId },
+				{ "client_secret", ClientSecret },
+				{ "grant_type", "client_credentials" },
+				{ "scope", string.Join(" ", Scopes) },
+			}!));
+			if (!response.IsSuccessStatusCode)
+			{
+				var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
+				throw new DmdataAuthenticationException($"ClientCredential認証に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
+			}
+			var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse)
+				?? throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
+			if (result.TokenType != "Bearer")
+				throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
+			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
+				throw new DmdataAuthenticationException("ClientCredential認証に失敗しました レスポンスからアクセストークンを取得できません");
+			// スコープが足りてるか確認
+			if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
+				throw new DmdataAuthenticationException("ClientCredential認証に失敗しました アクセストークンのスコープが足りていません");
 
-				return (expiresIn, accessToken);
-			}
-			catch (Exception ex) when (ex is not DmdataAuthenticationException)
-			{
-				throw new DmdataAuthenticationException("ClientCredential認証に失敗しました", ex);
-			}
+			return (expiresIn, accessToken);
 		}
 
 		/// <summary>
