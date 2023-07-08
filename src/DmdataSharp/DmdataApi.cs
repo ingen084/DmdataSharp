@@ -215,7 +215,7 @@ namespace DmdataSharp
 						throw new DmdataNotValidContractException("有効な契約が存在しません。 URL: " + Authenticator.FilterErrorMessage(url));
 					case System.Net.HttpStatusCode.Unauthorized:
 						throw new DmdataUnauthorizedException("認証情報が不正です。 URL: " + Authenticator.FilterErrorMessage(url));
-#if !NET5_0 && !NET6_0
+#if !NET7_0 && !NET6_0
 					case (System.Net.HttpStatusCode)429:
 #else
 					case System.Net.HttpStatusCode.TooManyRequests:
