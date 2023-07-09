@@ -59,43 +59,35 @@ namespace DmdataSharp.Authentication.OAuth
 		/// <returns></returns>
 		protected async override Task<(int, string)> GetAccessTokenAsync()
 		{
-			try
+			using var request = new HttpRequestMessage(HttpMethod.Post, TOKEN_ENDPOINT_URL);
+			request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
 			{
-				using var request = new HttpRequestMessage(HttpMethod.Post, TOKEN_ENDPOINT_URL);
-				request.Content = new FormUrlEncodedContent(new Dictionary<string, string?>()
-				{
-					{ "client_id", ClientId },
-					{ "grant_type", "refresh_token" },
-					{ "refresh_token", RefreshToken },
-				}!);
-				if (DpopKey != null)
-					SetDpopJwtHeader(request, DpopKey, null);
+				{ "client_id", ClientId },
+				{ "grant_type", "refresh_token" },
+				{ "refresh_token", RefreshToken },
+			}!);
+			if (DpopKey != null)
+				SetDpopJwtHeader(request, DpopKey, null);
 
-				var response = await Client.SendAsync(request);
-				if (!response.IsSuccessStatusCode)
-				{
-					var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
-					throw new DmdataAuthenticationException($"アクセストークンの更新に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
-				}
-				var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse);
-				if (result == null)
-					throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
-				if (DpopKey == null && result.TokenType != "Bearer")
-					throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
-				if (DpopKey != null && result.TokenType != "DPoP")
-					throw new DmdataAuthenticationException("DPoPトークン以外は処理できません");
-				if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
-					throw new DmdataAuthenticationException("レスポンスからトークンを取得できません");
-				// スコープが足りてるか確認
-				if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
-					throw new DmdataAuthenticationException("アクセストークンのスコープが足りていません");
-
-				return (expiresIn, accessToken);
-			}
-			catch (Exception ex) when (ex is not DmdataAuthenticationException)
+			var response = await Client.SendAsync(request);
+			if (!response.IsSuccessStatusCode)
 			{
-				throw new DmdataAuthenticationException("アクセストークンの更新に失敗しました", ex);
+				var errorResponse = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthErrorResponse);
+				throw new DmdataAuthenticationException($"アクセストークンの更新に失敗しました {errorResponse?.Error}({errorResponse?.ErrorDescription})");
 			}
+			var result = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(), OAuthSerializerContext.Default.OAuthTokenResponse)
+				?? throw new DmdataAuthenticationException("レスポンスをパースできませんでした");
+			if (DpopKey == null && result.TokenType != "Bearer")
+				throw new DmdataAuthenticationException("Bearerトークン以外は処理できません");
+			if (DpopKey != null && result.TokenType != "DPoP")
+				throw new DmdataAuthenticationException("DPoPトークン以外は処理できません");
+			if (result.ExpiresIn is not int expiresIn || result.AccessToken is not string accessToken)
+				throw new DmdataAuthenticationException("レスポンスからトークンを取得できません");
+			// スコープが足りてるか確認
+			if (Scopes.Except(result.Scope?.Split(' ') ?? Array.Empty<string>()).Any())
+				throw new DmdataAuthenticationException("アクセストークンのスコープが足りていません");
+
+			return (expiresIn, accessToken);
 		}
 
 		/// <summary>

@@ -18,6 +18,12 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 - `DmdataV2ApiClient` に `AllowPararellRequest` プロパティを追加しました。
   - デフォルトでは `false` のため実質並列リクエストが許可されなくなることになります。
 - EEW GD APIを追加しました(thx! @iedred7584)
+- WebSocket接続時、任意のサーバーに接続できるようになりました。(利用方法は下記参照)
+
+### 変更
+
+- OAuth 利用時、回線に問題が起きたときに `DmdataAuthenticationException` が発生しないようにしました。
+- .NET 5 への対応を終了し、 .NET 7 に対応させました。
 
 ## v0.4.0.0 からの変更点
 
@@ -310,6 +316,15 @@ await socket.ConnectAsync(new SocketStartRequestParameter(
 
 `SocketStartRequestParameter` の引数には受信したい情報のカテゴリを、 `AppName` は管理画面の `状況` ページで表示される `メモ` の指定が行なえます。(文字数制限に注意)  
 その他にも `Types` で電文のフィルタなども行えますのでご活用ください。
+
+冗長性を確保したい等、接続先のサーバーを指定したいときは追加で引数を指定することもできます。
+
+```cs
+await socket.ConnectAsync(
+    new SocketStartRequestParameter(TelegramCategoryV1.Earthquake),
+    DmdataV2SocketEndpoints.Osaka
+);
+```
 
 ## 発生する例外について
 
