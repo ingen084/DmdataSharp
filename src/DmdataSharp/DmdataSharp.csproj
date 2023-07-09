@@ -18,6 +18,8 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
 	<PublishTrimmed>true</PublishTrimmed>
+
+	<PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,10 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
+    <None Include="../../LICENSE" Pack="true" PackagePath="/"/>
+	  <None Include="../../README.md" Pack="true" PackagePath="/"/>
   </ItemGroup>
 
 </Project>
