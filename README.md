@@ -4,6 +4,14 @@ dmdata.jp からの情報の取得を楽にするための非公式ライブラ�
 
 ![NuGet](https://img.shields.io/nuget/v/DmdataSharp?style=flat-square)
 
+## v0.6.0.0 からの変更点
+
+### 追加
+
+- **高冗長性WebSocketクライアント (`DmdataV2RedundantSocket`) を追加しました。**
+  - 複数のエンドポイントに同時接続して耐障害性が向上できるモードです。
+  - 自動で再接続されるため、単一コネクションの管理にも使えます。
+
 ## v0.5.0.0 からの変更点
 
 ### 廃止
@@ -325,6 +333,132 @@ await socket.ConnectAsync(
     DmdataV2SocketEndpoints.Osaka
 );
 ```
+
+## 冗長性を高めた状態でWebSocketを利用する
+
+v0.6.0.0で追加された `DmdataV2RedundantSocket` を使用することで、複数のエンドポイントに同時接続し、耐障害性を向上させることができます。
+
+### 1. 高冗長性クライアントインスタンスを作成する
+
+```cs
+// using DmdataSharp.Redundancy;
+using var redundantSocket = new DmdataV2RedundantSocket(client);
+```
+
+通常の `DmdataV2Socket` と同様にAPIクライアントを引数に指定します。
+
+### 2. イベントハンドラを登録する
+
+高冗長性クライアントでは、通常のWebSocketイベントに加えて、詳細な接続状態やデータの流れを監視できます。
+
+```cs
+// 基本的なデータ受信（重複除去後）
+redundantSocket.DataReceived += (s, e) =>
+{
+    Console.WriteLine($"Data: {e.Head.Type} from {redundantSocket.ActiveConnectionCount} connections");
+};
+
+// 生データ受信（重複除去前、接続別）
+redundantSocket.RawDataReceived += (s, e) =>
+{
+    Console.WriteLine($"Raw data from {e.EndpointName}, Duplicate: {e.IsDuplicate}");
+};
+
+// 個別接続の確立
+redundantSocket.ConnectionEstablished += (s, e) =>
+{
+    Console.WriteLine($"Connection established: {e.EndpointName}");
+};
+
+// 個別接続の切断
+redundantSocket.ConnectionLost += (s, e) =>
+{
+    Console.WriteLine($"Connection lost: {e.EndpointName}, Reason: {e.Reason}");
+};
+
+// 全接続の切断
+redundantSocket.AllConnectionsLost += (s, e) =>
+{
+    Console.WriteLine($"ALL CONNECTIONS LOST! Will retry in {e.NextReconnectAttempt.TotalSeconds}s");
+};
+
+// 冗長性復旧
+redundantSocket.RedundancyRestored += (s, e) =>
+{
+    Console.WriteLine($"Redundancy restored via {e.RestoredEndpoint}");
+};
+
+// 冗長性状況変更
+redundantSocket.RedundancyStatusChanged += (s, e) =>
+{
+    Console.WriteLine($"Status: {e.Status}, Active: {e.ActiveConnections}");
+};
+
+// 接続エラー
+redundantSocket.ConnectionError += (s, e) =>
+{
+    Console.WriteLine($"Error on {e.EndpointName}: {e.Exception?.Message}");
+};
+```
+
+### 3. 接続を開始する
+
+```cs
+// デフォルト（東京+大阪）に接続
+await redundantSocket.ConnectAsync(new SocketStartRequestParameter(
+    TelegramCategoryV1.Earthquake,
+    TelegramCategoryV1.Scheduled
+)
+{
+    AppName = "冗長性アプリ",
+});
+```
+
+エンドポイントを明示的に指定することも可能です：
+
+```cs
+// カスタムエンドポイントに接続
+await redundantSocket.ConnectAsync(
+    new SocketStartRequestParameter(TelegramCategoryV1.Earthquake),
+    [ 
+        DmdataV2SocketEndpoints.Tokyo,
+        DmdataV2SocketEndpoints.Osaka,
+        DmdataV2SocketEndpoints.Apne1Az4 
+    ]
+);
+```
+
+### 4. 接続状態の確認
+
+```cs
+Console.WriteLine($"Status: {redundantSocket.Status}");
+Console.WriteLine($"Active connections: {redundantSocket.ActiveConnectionCount}");
+Console.WriteLine($"Connected endpoints: {string.Join(", ", redundantSocket.ConnectedEndpoints)}");
+Console.WriteLine($"Total messages: {redundantSocket.TotalMessagesReceived}");
+Console.WriteLine($"Duplicates filtered: {redundantSocket.DuplicateMessagesFiltered}");
+```
+
+### 5. 設定オプション
+
+```cs
+var options = new RedundantSocketOptions
+{
+    DefaultEndpoints = new[] { DmdataV2SocketEndpoints.Tokyo, DmdataV2SocketEndpoints.Osaka },
+    DeduplicationCacheSize = 2000,      // 重複除去キャッシュサイズ（デフォルト: 1000）
+    EnableRawDataEvents = true,         // 生データイベントを有効化（デフォルト: true）
+    ReconnectDelay = TimeSpan.FromSeconds(10)  // 再接続間隔（デフォルト: 5秒）
+};
+
+using var redundantSocket = new DmdataV2RedundantSocket(client, options);
+```
+
+### 主な機能
+
+- **複数エンドポイント同時接続**: デフォルトで東京・大阪の2箇所に接続
+- **重複メッセージ除去**: ハッシュによる自動重複検出・除去
+- **詳細な状態監視**: 個別接続の状態変化を細かく追跡
+- **自動フェイルオーバー**: 一部接続が失われても継続動作
+- **統計情報**: 受信数・重複数・接続状況の統計
 
 ## 発生する例外について
 
