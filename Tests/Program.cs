@@ -36,8 +36,8 @@ namespace Tests
 							Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
 						else
 							Console.WriteLine("下記のURLをブラウザを開いて認証を行ってください。\n" + u);
-					},
-					true);
+					}
+					);// ,true);
 			}
 			catch (Exception ex)
 			{
@@ -135,25 +135,25 @@ namespace Tests
 			
 			// イベントハンドラ設定
 			redundantSocket.ConnectionEstablished += (s, e) => 
-				Console.WriteLine($"REDUNDANT: Connection established to {e.EndpointName} at {e.ConnectedTime:HH:mm:ss}");
+				Console.WriteLine($"REDUNDANT: Connection established to {e.EndpointName} at {e.ConnectedTime:HH:mm:ss.fff}");
 			
 			redundantSocket.ConnectionLost += (s, e) => 
-				Console.WriteLine($"REDUNDANT: Connection lost from {e.EndpointName} at {e.DisconnectedTime:HH:mm:ss}. Reason: {e.Reason}");
+				Console.WriteLine($"REDUNDANT: Connection lost from {e.EndpointName} at {e.DisconnectedTime:HH:mm:ss.fff}. Reason: {e.Reason}");
 			
 			redundantSocket.AllConnectionsLost += (s, e) => 
-				Console.WriteLine($"REDUNDANT: ALL CONNECTIONS LOST at {e.LostTime:HH:mm:ss}. Will attempt reconnect in {e.NextReconnectAttempt.TotalSeconds}s");
+				Console.WriteLine($"REDUNDANT: ALL CONNECTIONS LOST at {e.LostTime:HH:mm:ss.fff}. Will attempt reconnect in {e.NextReconnectAttempt.TotalSeconds}s");
 			
 			redundantSocket.RedundancyRestored += (s, e) => 
-				Console.WriteLine($"REDUNDANT: Redundancy restored via {e.RestoredEndpoint} at {e.RestoredTime:HH:mm:ss}. Active connections: {e.TotalActiveConnections}");
+				Console.WriteLine($"REDUNDANT: Redundancy restored via {e.RestoredEndpoint} at {e.RestoredTime:HH:mm:ss.fff}. Active connections: {e.TotalActiveConnections}");
 			
 			redundantSocket.RedundancyStatusChanged += (s, e) => 
-				Console.WriteLine($"REDUNDANT: Status changed to {e.Status} at {e.ChangedTime:HH:mm:ss}. Active: {e.ActiveConnections}, Endpoints: [{string.Join(", ", e.ActiveEndpoints)}]");
+				Console.WriteLine($"REDUNDANT: Status changed to {e.Status} at {e.ChangedTime:HH:mm:ss.fff}. Active: {e.ActiveConnections}, Endpoints: [{string.Join(", ", e.ActiveEndpoints)}]");
 			
 			redundantSocket.ConnectionError += (s, e) => 
 				Console.WriteLine($"REDUNDANT: Connection error on {e.EndpointName}: {e.Exception?.Message ?? e.ErrorMessage?.Error}");
 			
 			redundantSocket.RawDataReceived += (s, e) => 
-				Console.WriteLine($"REDUNDANT: Raw data from {e.EndpointName} at {e.ReceivedTime:HH:mm:ss}. Duplicate: {e.IsDuplicate}, Type: {e.Message?.Head.Type}");
+				Console.WriteLine($"REDUNDANT: Raw data from {e.EndpointName} at {e.ReceivedTime:HH:mm:ss.fff}. Duplicate: {e.IsDuplicate}, Type: {e.Message?.Head.Type}");
 			
 			redundantSocket.DataReceived += (s, e) =>
 			{
@@ -165,7 +165,7 @@ namespace Tests
 			// デフォルトエンドポイント（東京+大阪）に接続
 			await redundantSocket.ConnectAsync(new SocketStartRequestParameter(TelegramCategoryV1.Earthquake)
 			{
-				AppName = "DmdataSharp;RedundantExample",
+				AppName = "DmdataSharp",
 			});
 
 			Console.WriteLine($"高冗長性WebSocket接続完了。現在の状態: {redundantSocket.Status}, アクティブ接続数: {redundantSocket.ActiveConnectionCount}");
