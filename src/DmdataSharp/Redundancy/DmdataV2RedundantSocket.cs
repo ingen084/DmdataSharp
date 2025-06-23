@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace DmdataSharp.Redundancy
@@ -61,11 +60,12 @@ namespace DmdataSharp.Redundancy
 		#region Private Fields
 
 		private readonly Dictionary<string, DmdataV2Socket> _connections = [];
+		private readonly Dictionary<string, ReconnectionState> _reconnectionStates = [];
 		private readonly HashSet<string> _recentMessageIds = [];
 		private readonly Queue<string> _messageIdQueue = new();
 		private readonly object _lockObject = new();
-		private readonly Timer _reconnectTimer;
 
+		private SocketStartRequestParameter? _connectionParameters;
 		private RedundancyStatus _currentStatus = RedundancyStatus.Disconnected;
 		private bool _disposed = false;
 
@@ -91,7 +91,7 @@ namespace DmdataSharp.Redundancy
 		/// <summary>
 		/// 接続されているエンドポイント名の配列
 		/// </summary>
-		public string[] ConnectedEndpoints => _connections.Where(kv => kv.Value.IsConnected).Select(kv => kv.Key).ToArray();
+		public string[] ConnectedEndpoints => [.. _connections.Where(kv => kv.Value.IsConnected).Select(kv => kv.Key)];
 
 		/// <summary>
 		/// 現在の冗長性状態
@@ -137,7 +137,6 @@ namespace DmdataSharp.Redundancy
 			ApiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
 			Options = options ?? new RedundantSocketOptions();
 
-			_reconnectTimer = new Timer(ReconnectCallback, null, Timeout.Infinite, Timeout.Infinite);
 		}
 
 		#endregion
@@ -152,11 +151,13 @@ namespace DmdataSharp.Redundancy
 		/// <returns></returns>
 		public async Task ConnectAsync(SocketStartRequestParameter param, string[]? endpoints = null)
 		{
-			if (_disposed)
-				throw new ObjectDisposedException(nameof(DmdataV2RedundantSocket));
+			ObjectDisposedException.ThrowIf(_disposed, this);
 
 			var targetEndpoints = endpoints ?? Options.DefaultEndpoints;
 			var wasDisconnected = !IsConnected;
+
+			// 接続パラメータを保存
+			_connectionParameters = param;
 
 			foreach (var endpoint in targetEndpoints)
 			{
@@ -165,6 +166,7 @@ namespace DmdataSharp.Redundancy
 					var socket = new DmdataV2Socket(ApiClient);
 					SetupSocketEvents(socket, endpoint);
 					_connections[endpoint] = socket;
+					_reconnectionStates[endpoint] = new ReconnectionState();
 
 					await socket.ConnectAsync(param, endpoint);
 				}
@@ -176,6 +178,9 @@ namespace DmdataSharp.Redundancy
 						EndpointName = endpoint,
 						Exception = ex
 					});
+
+					// 接続失敗時は再接続をスケジュール
+					ScheduleReconnect(endpoint);
 				}
 			}
 
@@ -189,14 +194,18 @@ namespace DmdataSharp.Redundancy
 					LostTime = DateTime.Now,
 					DisconnectedEndpoints = targetEndpoints,
 					WillAttemptReconnect = true,
-					NextReconnectAttempt = Options.ReconnectDelay
+					NextReconnectAttempt = Options.InitialReconnectDelay
 				});
 
-				ScheduleReconnect(param, targetEndpoints);
+				// 全エンドポイントの再接続をスケジュール
+				foreach (var endpoint in targetEndpoints)
+				{
+					ScheduleReconnect(endpoint);
+				}
 			}
 			else if (wasDisconnected)
 			{
-				// 切断状态から復旧した場合
+				// 切断状態から復旧した場合
 				var firstConnectedEndpoint = ConnectedEndpoints.FirstOrDefault() ?? string.Empty;
 				RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
 				{
@@ -216,7 +225,6 @@ namespace DmdataSharp.Redundancy
 			if (_disposed)
 				return;
 
-			_reconnectTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
 			var disconnectTasks = _connections.Values.Select(socket => socket.DisconnectAsync()).ToArray();
 			await Task.WhenAll(disconnectTasks);
@@ -238,12 +246,10 @@ namespace DmdataSharp.Redundancy
 		/// <returns></returns>
 		public async Task ReconnectEndpointAsync(string endpoint, SocketStartRequestParameter param)
 		{
-			if (_disposed)
-				throw new ObjectDisposedException(nameof(DmdataV2RedundantSocket));
+			ObjectDisposedException.ThrowIf(_disposed, this);
 
-			if (_connections.ContainsKey(endpoint))
+			if (_connections.TryGetValue(endpoint, out var oldSocket))
 			{
-				var oldSocket = _connections[endpoint];
 				await oldSocket.DisconnectAsync();
 				oldSocket.Dispose();
 			}
@@ -281,7 +287,7 @@ namespace DmdataSharp.Redundancy
 			socket.Error += (sender, e) => OnSocketError(sender, e, endpoint);
 		}
 
-		private void OnSocketConnected(object? sender, StartWebSocketMessage? e, string endpoint)
+		private void OnSocketConnected(object? _, StartWebSocketMessage? e, string endpoint)
 		{
 			var wasDisconnected = Status == RedundancyStatus.Disconnected;
 
@@ -305,7 +311,7 @@ namespace DmdataSharp.Redundancy
 			}
 		}
 
-		private void OnSocketDataReceived(object? sender, DataWebSocketMessage? e, string endpoint)
+		private void OnSocketDataReceived(object? _, DataWebSocketMessage? e, string endpoint)
 		{
 			if (e == null)
 				return;
@@ -336,7 +342,7 @@ namespace DmdataSharp.Redundancy
 			}
 		}
 
-		private void OnSocketDisconnected(object? sender, EventArgs? e, string endpoint)
+		private void OnSocketDisconnected(object? _, EventArgs? __, string endpoint)
 		{
 			ConnectionLost?.Invoke(this, new ConnectionLostEventArgs
 			{
@@ -349,27 +355,28 @@ namespace DmdataSharp.Redundancy
 			var wasConnected = Status != RedundancyStatus.Disconnected;
 			UpdateRedundancyStatus();
 
+			// 個別エンドポイントの再接続をスケジュール
+			ScheduleReconnect(endpoint);
+
 			// 全接続が失われた場合
 			if (wasConnected && Status == RedundancyStatus.Disconnected)
 			{
 				AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
 				{
 					LostTime = DateTime.Now,
-					DisconnectedEndpoints = _connections.Keys.ToArray(),
+					DisconnectedEndpoints = [.. _connections.Keys],
 					WillAttemptReconnect = true,
-					NextReconnectAttempt = Options.ReconnectDelay
+					NextReconnectAttempt = GetNextReconnectDelay(endpoint)
 				});
 			}
 		}
 
-		private void OnSocketError(object? sender, ErrorWebSocketMessage? e, string endpoint)
-		{
+		private void OnSocketError(object? _, ErrorWebSocketMessage? e, string endpoint) =>
 			ConnectionError?.Invoke(this, new ConnectionErrorEventArgs
 			{
 				EndpointName = endpoint,
 				ErrorMessage = e
 			});
-		}
 
 		private bool IsDuplicateMessage(string messageId)
 		{
@@ -423,32 +430,118 @@ namespace DmdataSharp.Redundancy
 			}
 		}
 
-		private void ScheduleReconnect(SocketStartRequestParameter param, string[] endpoints)
+		private void ScheduleReconnect(string endpoint)
 		{
-			_reconnectTimer.Change(Options.ReconnectDelay, Timeout.InfiniteTimeSpan);
+			if (_disposed || _connectionParameters == null)
+				return;
+
+			if (!_reconnectionStates.TryGetValue(endpoint, out var state))
+			{
+				state = new ReconnectionState();
+				_reconnectionStates[endpoint] = state;
+			}
+
+			if (state.IsReconnecting)
+				return; // 既に再接続中
+
+			var delay = state.GetNextDelay(Options.ReconnectBackoffMultiplier, Options.MaxReconnectDelay);
+			state.NextDelay = delay;
+
+			Debug.WriteLine($"Scheduling reconnect for {endpoint} in {delay.TotalSeconds:F1}s (attempt #{state.AttemptCount + 1})");
+
+			_ = Task.Delay(delay).ContinueWith(async _ =>
+			{
+				if (_disposed)
+					return;
+
+				await AttemptReconnect(endpoint);
+			});
 		}
 
-		private void ReconnectCallback(object? _)
+		private async Task AttemptReconnect(string endpoint)
 		{
-			if (_disposed)
+			if (_disposed || _connectionParameters == null)
 				return;
+
+			if (!_reconnectionStates.TryGetValue(endpoint, out var state))
+				return;
+
+			if (_connections.TryGetValue(endpoint, out var existingSocket) && existingSocket.IsConnected)
+			{
+				// 既に接続済み
+				state.Reset();
+				return;
+			}
+
+			state.MarkAttempt();
 
 			try
 			{
-				// 切断された接続を再接続試行
-				var disconnectedEndpoints = _connections.Where(kv => !kv.Value.IsConnected).Select(kv => kv.Key).ToArray();
-				if (disconnectedEndpoints.Length > 0)
+				Debug.WriteLine($"Attempting to reconnect to {endpoint} (attempt #{state.AttemptCount})");
+
+				// 既存の切断されたソケットがある場合は破棄
+				if (existingSocket != null)
 				{
-					// この実装では元のパラメータを保持していないため、簡単な実装として全エンドポイントをスキップ
-					// 実際の使用では、より高度な状態管理が必要
-					Debug.WriteLine($"Reconnect timer fired, but parameter state is not preserved. Disconnected endpoints: {string.Join(", ", disconnectedEndpoints)}");
+					await existingSocket.DisconnectAsync();
+					existingSocket.Dispose();
+				}
+
+				// 新しいソケットを作成して接続
+				var socket = new DmdataV2Socket(ApiClient);
+				SetupSocketEvents(socket, endpoint);
+				_connections[endpoint] = socket;
+
+				await socket.ConnectAsync(_connectionParameters, endpoint);
+
+				// 接続成功
+				state.Reset();
+				Debug.WriteLine($"Successfully reconnected to {endpoint}");
+
+				var wasDisconnected = Status == RedundancyStatus.Disconnected;
+				UpdateRedundancyStatus();
+
+				if (wasDisconnected)
+				{
+					RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
+					{
+						RestoredTime = DateTime.Now,
+						RestoredEndpoint = endpoint,
+						TotalActiveConnections = ActiveConnectionCount
+					});
 				}
 			}
 			catch (Exception ex)
 			{
-				Debug.WriteLine($"Reconnect attempt failed: {ex.Message}");
+				Debug.WriteLine($"Failed to reconnect to {endpoint}: {ex.Message}");
+				ConnectionError?.Invoke(this, new ConnectionErrorEventArgs
+				{
+					EndpointName = endpoint,
+					Exception = ex
+				});
+
+				state.IsReconnecting = false;
+
+				// 再接続失敗時は再スケジュール（最大試行回数チェック）
+				if (Options.MaxReconnectAttempts < 0 || state.AttemptCount < Options.MaxReconnectAttempts)
+				{
+					ScheduleReconnect(endpoint);
+				}
+				else
+				{
+					Debug.WriteLine($"Max reconnect attempts reached for {endpoint}");
+				}
 			}
 		}
+
+		private TimeSpan GetNextReconnectDelay(string endpoint)
+		{
+			if (_reconnectionStates.TryGetValue(endpoint, out var state))
+			{
+				return state.GetNextDelay(Options.ReconnectBackoffMultiplier, Options.MaxReconnectDelay);
+			}
+			return Options.InitialReconnectDelay;
+		}
+
 
 		#endregion
 
@@ -463,7 +556,6 @@ namespace DmdataSharp.Redundancy
 				return;
 
 			_disposed = true;
-			_reconnectTimer?.Dispose();
 
 			foreach (var socket in _connections.Values)
 			{
@@ -472,6 +564,50 @@ namespace DmdataSharp.Redundancy
 
 			_connections.Clear();
 			GC.SuppressFinalize(this);
+		}
+
+		#endregion
+
+		#region Helper Classes
+
+		private class ReconnectionState
+		{
+			public int AttemptCount { get; set; }
+			public DateTime LastAttempt { get; set; }
+			public TimeSpan NextDelay { get; set; }
+			public bool IsReconnecting { get; set; }
+
+			public ReconnectionState()
+			{
+				AttemptCount = 0;
+				LastAttempt = DateTime.MinValue;
+				NextDelay = TimeSpan.FromSeconds(1);
+				IsReconnecting = false;
+			}
+
+			public TimeSpan GetNextDelay(double backoffMultiplier, TimeSpan maxDelay)
+			{
+				if (AttemptCount == 0)
+					return TimeSpan.FromSeconds(1);
+
+				var delay = TimeSpan.FromMilliseconds(NextDelay.TotalMilliseconds * backoffMultiplier);
+				return delay > maxDelay ? maxDelay : delay;
+			}
+
+			public void MarkAttempt()
+			{
+				AttemptCount++;
+				LastAttempt = DateTime.Now;
+				IsReconnecting = true;
+			}
+
+			public void Reset()
+			{
+				AttemptCount = 0;
+				LastAttempt = DateTime.MinValue;
+				NextDelay = TimeSpan.FromSeconds(1);
+				IsReconnecting = false;
+			}
 		}
 
 		#endregion
@@ -485,10 +621,10 @@ namespace DmdataSharp.Redundancy
 		/// <summary>
 		/// デフォルトエンドポイント
 		/// </summary>
-		public string[] DefaultEndpoints { get; set; } = {
+		public string[] DefaultEndpoints { get; set; } = [
 			DmdataV2SocketEndpoints.Tokyo,
 			DmdataV2SocketEndpoints.Osaka
-		};
+		];
 
 		/// <summary>
 		/// 重複排除キャッシュサイズ
@@ -501,8 +637,23 @@ namespace DmdataSharp.Redundancy
 		public bool EnableRawDataEvents { get; set; } = true;
 
 		/// <summary>
-		/// 再接続試行間隔
+		/// 初期再接続試行間隔
 		/// </summary>
-		public TimeSpan ReconnectDelay { get; set; } = TimeSpan.FromSeconds(5);
+		public TimeSpan InitialReconnectDelay { get; set; } = TimeSpan.FromSeconds(1);
+
+		/// <summary>
+		/// 最大再接続試行間隔
+		/// </summary>
+		public TimeSpan MaxReconnectDelay { get; set; } = TimeSpan.FromSeconds(60);
+
+		/// <summary>
+		/// 再接続バックオフ倍率
+		/// </summary>
+		public double ReconnectBackoffMultiplier { get; set; } = 2.0;
+
+		/// <summary>
+		/// 最大再接続試行回数（-1で無制限）
+		/// </summary>
+		public int MaxReconnectAttempts { get; set; } = -1;
 	}
 }
