@@ -23,5 +23,5 @@ public enum RedundancyStatus
 	/// <summary>
 	/// すべての接続が正常に確立されている
 	/// </summary>
-	FullyConnected
+	FullyConnected,
 }

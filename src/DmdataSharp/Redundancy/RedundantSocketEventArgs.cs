@@ -4,7 +4,7 @@ using System;
 namespace DmdataSharp.Redundancy;
 
 /// <summary>
-/// 重複排除前の生データ受信イベント引数
+/// 重複排除前の生データ受信イベント
 /// </summary>
 public class RawDataReceivedEventArgs : EventArgs
 {
@@ -30,7 +30,7 @@ public class RawDataReceivedEventArgs : EventArgs
 }
 
 /// <summary>
-/// 接続確立イベント引数
+/// 接続確立イベント
 /// </summary>
 public class ConnectionEstablishedEventArgs : EventArgs
 {
@@ -51,7 +51,7 @@ public class ConnectionEstablishedEventArgs : EventArgs
 }
 
 /// <summary>
-/// 接続失われイベント引数
+/// 接続が失われたイベント
 /// </summary>
 public class ConnectionLostEventArgs : EventArgs
 {
@@ -77,7 +77,7 @@ public class ConnectionLostEventArgs : EventArgs
 }
 
 /// <summary>
-/// 全接続失われイベント引数
+/// 全接続が失われたイベント
 /// </summary>
 public class AllConnectionsLostEventArgs : EventArgs
 {
@@ -103,7 +103,7 @@ public class AllConnectionsLostEventArgs : EventArgs
 }
 
 /// <summary>
-/// 冗長性復旧イベント引数
+/// 冗長性復旧イベント
 /// </summary>
 public class RedundancyRestoredEventArgs : EventArgs
 {
@@ -124,7 +124,7 @@ public class RedundancyRestoredEventArgs : EventArgs
 }
 
 /// <summary>
-/// 接続エラーイベント引数
+/// 接続エラーイベント
 /// </summary>
 public class ConnectionErrorEventArgs : EventArgs
 {
@@ -145,7 +145,7 @@ public class ConnectionErrorEventArgs : EventArgs
 }
 
 /// <summary>
-/// 冗長性状態変更イベント引数
+/// 冗長性状態変更イベント
 /// </summary>
 public class RedundancyStatusChangedEventArgs : EventArgs
 {

@@ -621,7 +621,7 @@ public class RedundantSocketOptions
 	/// </summary>
 	public static readonly string[] DefaultEndpoints = [
 		DmdataV2SocketEndpoints.Tokyo,
-		DmdataV2SocketEndpoints.Osaka
+		DmdataV2SocketEndpoints.Osaka,
 	];
 
 	/// <summary>
