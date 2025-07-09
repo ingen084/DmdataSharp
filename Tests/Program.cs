@@ -131,7 +131,7 @@ namespace Tests
 
 			// 高冗長性WebSocket接続テスト
 			Console.WriteLine("=== 高冗長性WebSocket接続テスト ===");
-			using var redundantSocket = new DmdataV2RedundantSocket(client);
+			using var redundantSocket = new RedundantDmdataSocketController(client);
 			
 			// イベントハンドラ設定
 			redundantSocket.ConnectionEstablished += (s, e) => 
