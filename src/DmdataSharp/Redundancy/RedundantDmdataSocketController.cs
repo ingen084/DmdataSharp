@@ -88,12 +88,12 @@ public class RedundantDmdataSocketController : IDisposable
 	#region Events
 
 	/// <summary>
-	/// 重複排除後のデータが受信された
+	/// 新規データ受信
 	/// </summary>
 	public event EventHandler<DataWebSocketMessage>? DataReceived;
 
 	/// <summary>
-	/// 重複排除前の生データが受信された
+	/// 重複排除前のデータ受信
 	/// </summary>
 	public event EventHandler<RawDataReceivedEventArgs>? RawDataReceived;
 
@@ -375,24 +375,12 @@ public class RedundantDmdataSocketController : IDisposable
 	{
 		var activeCount = ActiveConnectionCount;
 		var totalCount = _connections.Count;
-		RedundancyStatus newStatus;
-
-		if (activeCount == 0)
+		var newStatus = activeCount switch
 		{
-			newStatus = RedundancyStatus.Disconnected;
-		}
-		else if (activeCount == totalCount)
-		{
-			newStatus = RedundancyStatus.FullyConnected;
-		}
-		else if (activeCount >= totalCount / 2)
-		{
-			newStatus = RedundancyStatus.PartiallyConnected;
-		}
-		else
-		{
-			newStatus = RedundancyStatus.Degraded;
-		}
+			0 => RedundancyStatus.Disconnected,
+			var count when count >= totalCount => RedundancyStatus.FullyConnected,
+			_ => RedundancyStatus.PartiallyConnected
+		};
 
 		lock (_statusLock)
 		{

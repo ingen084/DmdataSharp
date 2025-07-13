@@ -11,11 +11,6 @@ public enum RedundancyStatus
 	Disconnected,
 
 	/// <summary>
-	/// 一部の接続が失われているが、少なくとも1つは接続されている
-	/// </summary>
-	Degraded,
-
-	/// <summary>
 	/// 設定された最小接続数を満たしているが、一部の接続が失われている
 	/// </summary>
 	PartiallyConnected,
