@@ -11,7 +11,7 @@ namespace DmdataSharp.Redundancy;
 /// <summary>
 /// 複数のdmdata WebSocket接続を管理する冗長性コントローラー
 /// </summary>
-public class RedundantDmdataSocketController : IDisposable
+public class RedundantDmdataSocketController : IAsyncDisposable, IDisposable
 {
 	private readonly DmdataV2ApiClient _apiClient;
 	private readonly MessageDeduplicator _deduplicator;
@@ -136,7 +136,7 @@ public class RedundantDmdataSocketController : IDisposable
 	/// </summary>
 	public async Task ConnectAsync(SocketStartRequestParameter param, string[]? endpoints = null)
 	{
-		if (_disposed) throw new ObjectDisposedException(nameof(RedundantDmdataSocketController));
+		ThrowIfDisposed();
 
 		// 既存の接続があれば切断
 		if (_connections.Count > 0)
@@ -158,22 +158,11 @@ public class RedundantDmdataSocketController : IDisposable
 		if (wasDisconnected && IsConnected)
 		{
 			var firstConnected = ConnectedEndpoints.FirstOrDefault() ?? string.Empty;
-			RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
-			{
-				RestoredTime = DateTime.Now,
-				RestoredEndpoint = firstConnected,
-				TotalActiveConnections = ActiveConnectionCount
-			});
+			FireRedundancyRestored(firstConnected);
 		}
 		else if (!IsConnected)
 		{
-			AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
-			{
-				LostTime = DateTime.Now,
-				DisconnectedEndpoints = targetEndpoints,
-				WillAttemptReconnect = true,
-				NextReconnectAttempt = TimeSpan.FromSeconds(1)
-			});
+			FireAllConnectionsLost(targetEndpoints);
 		}
 	}
 
@@ -200,7 +189,6 @@ public class RedundantDmdataSocketController : IDisposable
 			}
 		}
 
-
 		UpdateStatus();
 	}
 
@@ -210,7 +198,7 @@ public class RedundantDmdataSocketController : IDisposable
 	/// <param name="endpoint">再接続するエンドポイント名</param>
 	public async Task ReconnectEndpointAsync(string endpoint)
 	{
-		if (_disposed) throw new ObjectDisposedException(nameof(RedundantDmdataSocketController));
+		ThrowIfDisposed();
 		if (_currentParameters == null) throw new InvalidOperationException("No connection parameters available");
 
 		if (_connections.TryGetValue(endpoint, out var connection))
@@ -222,6 +210,33 @@ public class RedundantDmdataSocketController : IDisposable
 	#endregion
 
 	#region Private Methods
+
+	// 古い .net バージョンでは ObjectDisposedException がサポートされていないため、代わりに例外をスロー
+	private void ThrowIfDisposed()
+	{
+		if (_disposed) throw new ObjectDisposedException(nameof(RedundantDmdataSocketController));
+	}
+
+	private void FireRedundancyRestored(string endpoint)
+	{
+		RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
+		{
+			RestoredTime = DateTime.Now,
+			RestoredEndpoint = endpoint,
+			TotalActiveConnections = ActiveConnectionCount
+		});
+	}
+
+	private void FireAllConnectionsLost(string[] disconnectedEndpoints)
+	{
+		AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
+		{
+			LostTime = DateTime.Now,
+			DisconnectedEndpoints = disconnectedEndpoints,
+			WillAttemptReconnect = true,
+			NextReconnectAttempt = TimeSpan.FromSeconds(1)
+		});
+	}
 
 	private async Task ConnectToEndpointAsync(string endpoint, SocketStartRequestParameter param)
 	{
@@ -323,13 +338,7 @@ public class RedundantDmdataSocketController : IDisposable
 
 			if (wasConnected && Status == RedundancyStatus.Disconnected)
 			{
-				AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
-				{
-					LostTime = DateTime.Now,
-					DisconnectedEndpoints = [.. _connections.Keys],
-					WillAttemptReconnect = true,
-					NextReconnectAttempt = TimeSpan.FromSeconds(1)
-				});
+				FireAllConnectionsLost([.. _connections.Keys]);
 			}
 		};
 
@@ -342,12 +351,6 @@ public class RedundantDmdataSocketController : IDisposable
 			});
 		};
 		
-		// 再接続イベントを設定
-		connection.ReconnectionAttempt += (s, e) =>
-		{
-			// 再接続試行のログ出力などが必要な場合はここで処理
-		};
-		
 		connection.ReconnectionSucceeded += (s, e) =>
 		{
 			var wasDisconnected = Status == RedundancyStatus.Disconnected;
@@ -355,18 +358,8 @@ public class RedundantDmdataSocketController : IDisposable
 
 			if (wasDisconnected)
 			{
-				RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
-				{
-					RestoredTime = DateTime.Now,
-					RestoredEndpoint = endpoint,
-					TotalActiveConnections = ActiveConnectionCount
-				});
+				FireRedundancyRestored(endpoint);
 			}
-		};
-		
-		connection.ReconnectionFailed += (s, e) =>
-		{
-			// 再接続失敗のログ出力などが必要な場合はここで処理
 		};
 	}
 
@@ -400,22 +393,22 @@ public class RedundantDmdataSocketController : IDisposable
 
 	#endregion
 
-	#region IDisposable
+	#region IAsyncDisposable
 
 	/// <summary>
-	/// リソースを解放する
+	/// リソースを非同期で解放する
 	/// </summary>
-	public void Dispose()
+	public async ValueTask DisposeAsync()
 	{
 		if (_disposed) return;
 		_disposed = true;
 
 		_cancellationTokenSource.Cancel();
 		
-		// すべての接続を切断
+		// すべての接続を非同期で切断
 		try
 		{
-			DisconnectAsync().Wait(TimeSpan.FromSeconds(5));
+			await DisconnectAsync();
 		}
 		catch
 		{
@@ -429,6 +422,14 @@ public class RedundantDmdataSocketController : IDisposable
 		_deduplicator.Clear();
 		_cancellationTokenSource.Dispose();
 		GC.SuppressFinalize(this);
+	}
+
+	/// <summary>
+	/// リソースを同期で解放する
+	/// </summary>
+	public void Dispose()
+	{
+		DisposeAsync().AsTask().Wait();
 	}
 
 	#endregion
