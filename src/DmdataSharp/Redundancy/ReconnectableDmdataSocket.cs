@@ -19,8 +19,8 @@ public class ReconnectableDmdataSocket : IDisposable
 	private SocketStartRequestParameter? _connectionParameters;
 	private CancellationToken? _externalCancellationToken;
 	private int _attemptCount;
-	private bool _isReconnecting;
 	private bool _disposed;
+	private Timer? _reconnectionTimer;
 
 	/// <summary>
 	/// 再接続可能なdmdata WebSocket接続を初期化する
@@ -35,7 +35,7 @@ public class ReconnectableDmdataSocket : IDisposable
 		_reconnectionOptions = reconnectionOptions ?? new ReconnectionOptions();
 
 		// イベントを直接転送
-		_socket.Connected += (s, e) => Connected?.Invoke(this, e!);
+		_socket.Connected += OnConnected;
 		_socket.DataReceived += (s, e) => DataReceived?.Invoke(this, e!);
 		_socket.Disconnected += OnDisconnected;
 		_socket.Error += OnError;
@@ -103,6 +103,8 @@ public class ReconnectableDmdataSocket : IDisposable
 		if (_disposed) return;
 
 		_cancellationTokenSource.Cancel();
+		_reconnectionTimer?.Dispose();
+		_reconnectionTimer = null;
 		
 		if (_socket.IsConnected)
 		{
@@ -110,78 +112,74 @@ public class ReconnectableDmdataSocket : IDisposable
 		}
 	}
 
+	private void OnConnected(object? sender, StartWebSocketMessage? e)
+	{
+		_attemptCount = 0;
+		Connected?.Invoke(this, e!);
+	}
+
 	private void OnDisconnected(object? sender, EventArgs? e)
 	{
 		Disconnected?.Invoke(this, e);
 		
-		if (!_disposed && !_isReconnecting)
-		{
-			_ = Task.Run(StartReconnectionLoop);
-		}
+		if (!_disposed)
+			ScheduleReconnection(_reconnectionOptions.InitialDelay);
 	}
 
 	private void OnError(object? sender, ErrorWebSocketMessage? e)
 	{
 		Error?.Invoke(this, e);
 		
-		if (!_disposed && !_isReconnecting && !_socket.IsConnected)
-		{
-			_ = Task.Run(StartReconnectionLoop);
-		}
+		if (!_disposed && !_socket.IsConnected)
+			ScheduleReconnection(_reconnectionOptions.InitialDelay);
 	}
 
-	private async Task StartReconnectionLoop()
+	private void ScheduleReconnection(TimeSpan delay)
 	{
-		if (_isReconnecting || _disposed || _connectionParameters == null) return;
-		
-		_isReconnecting = true;
-		_attemptCount = 0;
-
-		try
+		_reconnectionTimer?.Dispose();
+		_reconnectionTimer = new Timer(async _ =>
 		{
-			while (!_socket.IsConnected && !_disposed && !_cancellationTokenSource.Token.IsCancellationRequested)
+			if (_disposed || _socket.IsConnected || _connectionParameters == null) return;
+
+			try
 			{
 				_attemptCount++;
 				
 				if (_reconnectionOptions.MaxAttempts > 0 && _attemptCount > _reconnectionOptions.MaxAttempts)
 				{
 					ReconnectionFailed?.Invoke(this, new ReconnectionFailedEventArgs(_endpoint, _attemptCount, "Max attempts reached"));
-					break;
+					return;
 				}
 
-				var delay = CalculateDelay();
 				ReconnectionAttempt?.Invoke(this, new ReconnectionAttemptEventArgs(_endpoint, _attemptCount, delay));
 
-				try
-				{
-					await Task.Delay(delay, _cancellationTokenSource.Token);
-					
-					var combinedToken = _externalCancellationToken.HasValue
-						? CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token, _externalCancellationToken.Value).Token
-						: _cancellationTokenSource.Token;
-					
-					await _socket.ConnectAsync(_connectionParameters, _endpoint);
-				}
-				catch (OperationCanceledException)
-				{
-					break;
-				}
-				catch (Exception ex)
-				{
-					ReconnectionFailed?.Invoke(this, new ReconnectionFailedEventArgs(_endpoint, _attemptCount, ex.Message));
-				}
-			}
+				var combinedToken = _externalCancellationToken.HasValue
+					? CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token, _externalCancellationToken.Value).Token
+					: _cancellationTokenSource.Token;
 
-			if (_socket.IsConnected)
-			{
-				_attemptCount = 0;
-				ReconnectionSucceeded?.Invoke(this, new ReconnectionSucceededEventArgs(_endpoint));
+				if (combinedToken.IsCancellationRequested) return;
+
+				await _socket.ConnectAsync(_connectionParameters, _endpoint);
+				
+				if (_socket.IsConnected)
+					ReconnectionSucceeded?.Invoke(this, new ReconnectionSucceededEventArgs(_endpoint));
 			}
-		}
-		finally
-		{
-			_isReconnecting = false;
-		}
+			catch (OperationCanceledException)
+			{
+				// キャンセルは正常終了
+			}
+			catch (Exception ex)
+			{
+				ReconnectionFailed?.Invoke(this, new ReconnectionFailedEventArgs(_endpoint, _attemptCount, ex.Message));
+				
+				// 次回再試行をスケジュール
+				if ((_reconnectionOptions.MaxAttempts == -1 || _attemptCount < _reconnectionOptions.MaxAttempts) && !_disposed)
+				{
+					var nextDelay = CalculateDelay();
+					ScheduleReconnection(nextDelay);
+				}
+			}
+		}, null, delay, Timeout.InfiniteTimeSpan);
 	}
 
 	private TimeSpan CalculateDelay()
@@ -216,6 +214,7 @@ public class ReconnectableDmdataSocket : IDisposable
 		_disposed = true;
 
 		_cancellationTokenSource.Cancel();
+		_reconnectionTimer?.Dispose();
 		_socket.Dispose();
 		_cancellationTokenSource.Dispose();
 	}
