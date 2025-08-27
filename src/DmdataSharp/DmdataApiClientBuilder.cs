@@ -40,6 +40,16 @@ namespace DmdataSharp
 		/// </summary>
 		public HttpClient HttpClient { get; private set; }
 		private Authenticator? Authenticator { get; set; }
+		
+		/// <summary>
+		/// APIのベースURL
+		/// </summary>
+		public string ApiBaseUrl { get; private set; } = "https://api.dmdata.jp";
+		
+		/// <summary>
+		/// データAPIのベースURL
+		/// </summary>
+		public string DataApiBaseUrl { get; private set; } = "https://data.api.dmdata.jp";
 
 		/// <summary>
 		/// 独自のHttpClientを使用してBuilderを作成する
@@ -142,6 +152,28 @@ namespace DmdataSharp
 		}
 
 		/// <summary>
+		/// APIのベースURLを設定する
+		/// </summary>
+		/// <param name="apiBaseUrl">APIのベースURL</param>
+		/// <returns></returns>
+		public DmdataApiClientBuilder SetApiBaseUrl(string apiBaseUrl)
+		{
+			ApiBaseUrl = apiBaseUrl ?? throw new ArgumentNullException(nameof(apiBaseUrl));
+			return this;
+		}
+
+		/// <summary>
+		/// データAPIのベースURLを設定する
+		/// </summary>
+		/// <param name="dataApiBaseUrl">データAPIのベースURL</param>
+		/// <returns></returns>
+		public DmdataApiClientBuilder SetDataApiBaseUrl(string dataApiBaseUrl)
+		{
+			DataApiBaseUrl = dataApiBaseUrl ?? throw new ArgumentNullException(nameof(dataApiBaseUrl));
+			return this;
+		}
+
+		/// <summary>
 		/// API V2クライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V2クライアントのインスタンス</returns>
@@ -149,7 +181,7 @@ namespace DmdataSharp
 		{
 			if (Authenticator is null)
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			return new DmdataV2ApiClient(HttpClient, Authenticator);
+			return new DmdataV2ApiClient(HttpClient, Authenticator, ApiBaseUrl, DataApiBaseUrl);
 		}
 
 		/// <summary>
@@ -160,7 +192,7 @@ namespace DmdataSharp
 		{
 			if (Authenticator is null)
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			var ins = Activator.CreateInstance(typeof(T), new object[] { HttpClient, Authenticator });
+			var ins = Activator.CreateInstance(typeof(T), new object[] { HttpClient, Authenticator, ApiBaseUrl, DataApiBaseUrl });
 			if (ins is not T api)
 				throw new DmdataException("Apiインスタンスの生成に失敗しました");
 			return api;
