@@ -17,7 +17,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdata API V2 のクライアント
 	/// </summary>
-	public class DmdataV2ApiClient : DmdataApi
+	public class DmdataV2ApiClient : DmdataApi, Interfaces.IDmdataV2ApiClient
 	{
 		/// <summary>
 		/// dmdataのAPI V2クライアントを初期化します

@@ -16,7 +16,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのAPIクライアントベースクラス
 	/// </summary>
-	public abstract class DmdataApi : IDisposable
+	public abstract class DmdataApi : Interfaces.IDmdataApi
 	{
 		/// <summary>
 		/// HttpClient

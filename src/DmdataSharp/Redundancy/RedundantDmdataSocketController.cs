@@ -11,11 +11,11 @@ namespace DmdataSharp.Redundancy;
 /// <summary>
 /// 複数のdmdata WebSocket接続を管理する冗長性コントローラー
 /// </summary>
-public class RedundantDmdataSocketController : IAsyncDisposable, IDisposable
+public class RedundantDmdataSocketController : Interfaces.IRedundantDmdataSocketController
 {
-	private readonly DmdataV2ApiClient _apiClient;
+	private readonly Interfaces.IDmdataV2ApiClient _apiClient;
 	private readonly MessageDeduplicator _deduplicator;
-	private readonly ConcurrentDictionary<string, ReconnectableDmdataSocket> _connections = new();
+	private readonly ConcurrentDictionary<string, Interfaces.IReconnectableDmdataSocket> _connections = new();
 	private readonly RedundantSocketOptions _options;
 	private readonly object _statusLock = new();
 	private readonly CancellationTokenSource _cancellationTokenSource = new();
@@ -44,7 +44,7 @@ public class RedundantDmdataSocketController : IAsyncDisposable, IDisposable
 	/// </summary>
 	/// <param name="apiClient">dmdata APIクライアント</param>
 	/// <param name="options">オプション設定（省略時はデフォルト値を使用）</param>
-	public RedundantDmdataSocketController(DmdataV2ApiClient apiClient, RedundantSocketOptions? options = null)
+	public RedundantDmdataSocketController(Interfaces.IDmdataV2ApiClient apiClient, RedundantSocketOptions? options = null)
 	{
 		_apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
 		_options = options ?? new RedundantSocketOptions();
@@ -56,7 +56,7 @@ public class RedundantDmdataSocketController : IAsyncDisposable, IDisposable
 	/// <summary>
 	/// APIクライアント
 	/// </summary>
-	public DmdataV2ApiClient ApiClient => _apiClient;
+	public Interfaces.IDmdataV2ApiClient ApiClient => _apiClient;
 
 	/// <summary>
 	/// オプション設定
@@ -278,7 +278,7 @@ public class RedundantDmdataSocketController : IAsyncDisposable, IDisposable
 		}
 	}
 
-	private void SetupConnectionEvents(ReconnectableDmdataSocket connection, string endpoint)
+	private void SetupConnectionEvents(Interfaces.IReconnectableDmdataSocket connection, string endpoint)
 	{
 		connection.Connected += (s, e) =>
 		{

@@ -14,7 +14,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのWebSocket V2セッション
 	/// </summary>
-	public class DmdataV2Socket : IDisposable
+	public class DmdataV2Socket : Interfaces.IDmdataV2Socket
 	{
 		private readonly SemaphoreSlim _connectionLock = new(1, 1);
 		
@@ -55,7 +55,7 @@ namespace DmdataSharp
 		/// <summary>
 		/// 親となるAPIクライアント
 		/// </summary>
-		public DmdataV2ApiClient ApiClient { get; }
+		public Interfaces.IDmdataV2ApiClient ApiClient { get; }
 		/// <summary>
 		/// WebSocketが切断済みかどうかを取得する
 		/// </summary>
@@ -65,7 +65,7 @@ namespace DmdataSharp
 		/// WebSocketインスタンスを初期化する
 		/// </summary>
 		/// <param name="apiClient">親となるAPIクライアント</param>
-		public DmdataV2Socket(DmdataV2ApiClient apiClient)
+		public DmdataV2Socket(Interfaces.IDmdataV2ApiClient apiClient)
 		{
 			ApiClient = apiClient;
 

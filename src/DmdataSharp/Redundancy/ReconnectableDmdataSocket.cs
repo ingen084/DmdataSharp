@@ -9,7 +9,7 @@ namespace DmdataSharp.Redundancy;
 /// <summary>
 /// 自動再接続機能付きのdmdata WebSocket接続クラス
 /// </summary>
-public class ReconnectableDmdataSocket : IDisposable
+public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 {
 	private readonly DmdataV2Socket _socket;
 	private readonly string _endpoint;
@@ -28,7 +28,7 @@ public class ReconnectableDmdataSocket : IDisposable
 	/// <param name="apiClient">APIクライアント</param>
 	/// <param name="endpoint">接続先エンドポイント</param>
 	/// <param name="reconnectionOptions">再接続オプション</param>
-	public ReconnectableDmdataSocket(DmdataV2ApiClient apiClient, string endpoint, ReconnectionOptions? reconnectionOptions = null)
+	public ReconnectableDmdataSocket(Interfaces.IDmdataV2ApiClient apiClient, string endpoint, ReconnectionOptions? reconnectionOptions = null)
 	{
 		_socket = new DmdataV2Socket(apiClient);
 		_endpoint = endpoint;
