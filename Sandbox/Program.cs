@@ -9,7 +9,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace Tests
+namespace DmdataSharp.Sandbox
 {
 	internal static class Program
 	{
