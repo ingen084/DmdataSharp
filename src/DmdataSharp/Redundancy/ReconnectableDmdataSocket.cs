@@ -21,6 +21,7 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 	private int _attemptCount;
 	private bool _disposed;
 	private Timer? _reconnectionTimer;
+	private int? _previousSocketId;
 
 	/// <summary>
 	/// 再接続可能なdmdata WebSocket接続を初期化する
@@ -115,6 +116,11 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 	private void OnConnected(object? sender, StartWebSocketMessage? e)
 	{
 		_attemptCount = 0;
+
+		// 接続が確立したら、前回の接続IDを記録
+		if (e != null)
+			_previousSocketId = e.SocketId;
+
 		Connected?.Invoke(this, e!);
 	}
 
@@ -144,7 +150,7 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 			try
 			{
 				_attemptCount++;
-				
+
 				if (_reconnectionOptions.MaxAttempts > 0 && _attemptCount > _reconnectionOptions.MaxAttempts)
 				{
 					ReconnectionFailed?.Invoke(this, new ReconnectionFailedEventArgs(_endpoint, _attemptCount, "Max attempts reached"));
@@ -159,8 +165,21 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 
 				if (combinedToken.IsCancellationRequested) return;
 
+				// 前回の接続IDがある場合は切断要求を送信
+				if (_previousSocketId is { } previousSocketId)
+				{
+					try
+					{
+						await _socket.ApiClient.CloseSocketAsync(previousSocketId);
+					}
+					catch
+					{
+						// 切断要求の失敗は無視（既に切断されている可能性がある）
+					}
+				}
+
 				await _socket.ConnectAsync(_connectionParameters, _endpoint);
-				
+
 				if (_socket.IsConnected)
 					ReconnectionSucceeded?.Invoke(this, new ReconnectionSucceededEventArgs(_endpoint));
 			}
@@ -171,7 +190,7 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 			catch (Exception ex)
 			{
 				ReconnectionFailed?.Invoke(this, new ReconnectionFailedEventArgs(_endpoint, _attemptCount, ex.Message));
-				
+
 				// 次回再試行をスケジュール
 				if ((_reconnectionOptions.MaxAttempts == -1 || _attemptCount < _reconnectionOptions.MaxAttempts) && !_disposed)
 				{
