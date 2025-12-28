@@ -17,7 +17,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdata API V2 のクライアント
 	/// </summary>
-	public class DmdataV2ApiClient : DmdataApi
+	public class DmdataV2ApiClient : DmdataApi, Interfaces.IDmdataV2ApiClient
 	{
 		/// <summary>
 		/// dmdataのAPI V2クライアントを初期化します
@@ -27,12 +27,21 @@ namespace DmdataSharp
 		public DmdataV2ApiClient(HttpClient client, Authenticator authenticator) : base(client, authenticator) { }
 
 		/// <summary>
+		/// dmdataのAPI V2クライアントを初期化します
+		/// </summary>
+		/// <param name="client">内部で使用するHttpClient</param>
+		/// <param name="authenticator">使用する認証</param>
+		/// <param name="apiBaseUrl">APIのベースURL</param>
+		/// <param name="dataApiBaseUrl">データAPIのベースURL</param>
+		public DmdataV2ApiClient(HttpClient client, Authenticator authenticator, string apiBaseUrl, string dataApiBaseUrl) : base(client, authenticator, apiBaseUrl, dataApiBaseUrl) { }
+
+		/// <summary>
 		/// 契約中、未契約の情報リストを取得する
 		/// <para>contract.list が必要です</para>
 		/// </summary>
 		/// <returns>契約中、未契約の情報リスト</returns>
 		public Task<ContractListResponse> GetContractListAsync()
-			=> GetJsonObject("https://api.dmdata.jp/v2/contract", ContractListResponseSerializerContext.Default.ContractListResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/contract", ContractListResponseSerializerContext.Default.ContractListResponse);
 
 		/// <summary>
 		/// WebSocketに関するリストを取得する
@@ -40,7 +49,7 @@ namespace DmdataSharp
 		/// </summary>
 		/// <returns>WebSocketに関するリスト</returns>
 		public Task<SocketListResponse> GetSocketListAsync()
-			=> GetJsonObject("https://api.dmdata.jp/v2/socket", SocketListResponseSerializerContext.Default.SocketListResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/socket", SocketListResponseSerializerContext.Default.SocketListResponse);
 		/// <summary>
 		/// WebSocket接続を開始するためのURLを取得する
 		/// <para>socket.start/取得する情報に合わせた各権限が必要です</para>
@@ -48,14 +57,14 @@ namespace DmdataSharp
 		/// <param name="param">接続開始のためのパラメータ</param>
 		/// <returns>リクエスト結果</returns>
 		public Task<SocketStartResponse> GetSocketStartAsync(SocketStartRequestParameter param)
-			=> PostJsonObject("https://api.dmdata.jp/v2/socket", param, SocketStartRequestParameterSerializerContext.Default.SocketStartRequestParameter, SocketStartResponseSerializerContext.Default.SocketStartResponse);
+			=> PostJsonObject($"{ApiBaseUrl}/v2/socket", param, SocketStartRequestParameterSerializerContext.Default.SocketStartRequestParameter, SocketStartResponseSerializerContext.Default.SocketStartResponse);
 		/// <summary>
 		/// WebSocketに関するリストを取得する
 		/// <para>socket.close が必要です</para>
 		/// </summary>
 		/// <returns>成功した場合はnull 失敗した場合はレスポンス</returns>
 		public Task<SocketCloseResponse?> CloseSocketAsync(int id)
-			=> DeleteJsonObject("https://api.dmdata.jp/v2/socket/" + id, SocketCloseResponseSerializerContext.Default.SocketCloseResponse);
+			=> DeleteJsonObject($"{ApiBaseUrl}/v2/socket/{id}", SocketCloseResponseSerializerContext.Default.SocketCloseResponse);
 
 		/// <summary>
 		/// 電文リストを取得する
@@ -91,7 +100,7 @@ namespace DmdataSharp
 				parameterMap["formatMode"] = formatMode;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject($"https://api.dmdata.jp/v2/telegram?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), TelegramListResponseSerializerContext.Default.TelegramListResponse);
+			return await GetJsonObject($"{ApiBaseUrl}/v2/telegram?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), TelegramListResponseSerializerContext.Default.TelegramListResponse);
 		}
 
 		/// <summary>
@@ -123,7 +132,7 @@ namespace DmdataSharp
 				parameterMap["cursorToken"] = cursorToken;
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
-			return await GetJsonObject($"https://api.dmdata.jp/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EarthquakeListResponseSerializerContext.Default.EarthquakeListResponse);
+			return await GetJsonObject($"{ApiBaseUrl}/v2/gd/earthquake?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EarthquakeListResponseSerializerContext.Default.EarthquakeListResponse);
 		}
 
 		/// <summary>
@@ -133,7 +142,7 @@ namespace DmdataSharp
 		/// <param name="eventId">地震情報のEventID</param>
 		/// <returns>地震イベントの詳細</returns>
 		public Task<EarthquakeEventResponse> GetEarthquakeEventAsync(string eventId)
-			=> GetJsonObject($"https://api.dmdata.jp/v2/gd/earthquake/" + eventId, EarthquakeEventResponseSerializerContext.Default.EarthquakeEventResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/gd/earthquake/{eventId}", EarthquakeEventResponseSerializerContext.Default.EarthquakeEventResponse);
 
 		/// <summary>
 		/// 緊急地震速報イベント一覧を取得します
@@ -167,7 +176,7 @@ namespace DmdataSharp
 			if (limit != 20)
 				parameterMap["limit"] = limit.ToString();
 
-			return await GetJsonObject("https://api.dmdata.jp/v2/gd/eew?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EewListResponseSerializerContext.Default.EewListResponse);
+			return await GetJsonObject($"{ApiBaseUrl}/v2/gd/eew?" + await new FormUrlEncodedContent(parameterMap!).ReadAsStringAsync(), EewListResponseSerializerContext.Default.EewListResponse);
 		}
 
 		/// <summary>
@@ -177,20 +186,20 @@ namespace DmdataSharp
 		/// <param name="eventId">緊急地震速報のEventID</param>
 		/// <returns>緊急地震速報イベントの詳細</returns>
 		public Task<EewEventResponse> GetEewEventAsync(string eventId)
-			=> GetJsonObject($"https://api.dmdata.jp/v2/gd/eew/" + eventId, EewEventResponseSerializerContext.Default.EewEventResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/gd/eew/{eventId}", EewEventResponseSerializerContext.Default.EewEventResponse);
 
 		/// <summary>
 		/// 地震観測地点の情報を取得します
 		/// </summary>
 		/// <returns>地震観測地点の情報</returns>
 		public Task<EarthquakeStationParameterResponse> GetEarthquakeStationParameterAsync()
-			=> GetJsonObject("https://api.dmdata.jp/v2/parameter/earthquake/station", EarthquakeStationParameterResponseSerializerContext.Default.EarthquakeStationParameterResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/parameter/earthquake/station", EarthquakeStationParameterResponseSerializerContext.Default.EarthquakeStationParameterResponse);
 		/// <summary>
 		/// 津波観測地点の情報を取得します
 		/// </summary>
 		/// <returns>津波観測地点の情報</returns>
 		public Task<TsunamiStationParameterResponse> GetTsunamiStationParameterAsync()
-			=> GetJsonObject("https://api.dmdata.jp/v2/parameter/tsunami/station", TsunamiStationParameterResponseSerializerContext.Default.TsunamiStationParameterResponse);
+			=> GetJsonObject($"{ApiBaseUrl}/v2/parameter/tsunami/station", TsunamiStationParameterResponseSerializerContext.Default.TsunamiStationParameterResponse);
 
 		/// <summary>
 		/// 電文のStreamを取得する
@@ -201,7 +210,7 @@ namespace DmdataSharp
 		/// <returns>レスポンスのStream</returns>
 		public async Task<Stream> GetTelegramStreamAsync(string telegramKey)
 		{
-			var url = $"https://data.api.dmdata.jp/v1/{telegramKey}";
+			var url = $"{DataApiBaseUrl}/v1/{telegramKey}";
 
 			var apl = AllowPararellRequest;
 			if (!apl)

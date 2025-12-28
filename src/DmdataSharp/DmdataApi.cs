@@ -16,7 +16,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// dmdataのAPIクライアントベースクラス
 	/// </summary>
-	public abstract class DmdataApi : IDisposable
+	public abstract class DmdataApi : Interfaces.IDmdataApi
 	{
 		/// <summary>
 		/// HttpClient
@@ -38,6 +38,16 @@ namespace DmdataSharp
 		public Authenticator Authenticator { get; set; }
 
 		/// <summary>
+		/// APIのベースURL
+		/// </summary>
+		public string ApiBaseUrl { get; set; } = "https://api.dmdata.jp";
+
+		/// <summary>
+		/// データAPIのベースURL
+		/// </summary>
+		public string DataApiBaseUrl { get; set; } = "https://data.api.dmdata.jp";
+
+		/// <summary>
 		/// 並列リクエストを許可するか
 		/// <para>サーバー負荷･レートリミットの原因となるため推奨しません。</para>
 		/// </summary>
@@ -57,6 +67,21 @@ namespace DmdataSharp
 		{
 			HttpClient = httpClient;
 			Authenticator = authenticator;
+		}
+
+		/// <summary>
+		/// 指定したHttpClient･認証方法･ベースURLで初期化する
+		/// </summary>
+		/// <param name="httpClient"></param>
+		/// <param name="authenticator"></param>
+		/// <param name="apiBaseUrl">APIのベースURL</param>
+		/// <param name="dataApiBaseUrl">データAPIのベースURL</param>
+		protected DmdataApi(HttpClient httpClient, Authenticator authenticator, string apiBaseUrl, string dataApiBaseUrl)
+		{
+			HttpClient = httpClient;
+			Authenticator = authenticator;
+			ApiBaseUrl = apiBaseUrl;
+			DataApiBaseUrl = dataApiBaseUrl;
 		}
 
 		/// <summary>

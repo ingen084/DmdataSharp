@@ -11,7 +11,7 @@ namespace DmdataSharp
 	/// <summary>
 	/// DmdataApiClientの初期化クラス
 	/// </summary>
-	public class DmdataApiClientBuilder
+	public class DmdataApiClientBuilder : Interfaces.IDmdataApiClientBuilder
 	{
 		private DmdataApiClientBuilder(HttpClient httpClient)
 		{
@@ -40,6 +40,16 @@ namespace DmdataSharp
 		/// </summary>
 		public HttpClient HttpClient { get; private set; }
 		private Authenticator? Authenticator { get; set; }
+		
+		/// <summary>
+		/// APIのベースURL
+		/// </summary>
+		public string ApiBaseUrl { get; private set; } = "https://api.dmdata.jp";
+		
+		/// <summary>
+		/// データAPIのベースURL
+		/// </summary>
+		public string DataApiBaseUrl { get; private set; } = "https://data.api.dmdata.jp";
 
 		/// <summary>
 		/// 独自のHttpClientを使用してBuilderを作成する
@@ -53,7 +63,7 @@ namespace DmdataSharp
 		/// APIのタイムアウトを指定する
 		/// </summary>
 		/// <param name="time">タイムアウト</param>
-		public DmdataApiClientBuilder Timeout(TimeSpan time)
+		public Interfaces.IDmdataApiClientBuilder Timeout(TimeSpan time)
 		{
 			HttpClient.Timeout = time;
 			return this;
@@ -62,7 +72,7 @@ namespace DmdataSharp
 		/// リファラを設定する
 		/// </summary>
 		/// <param name="referrer">設定するリファラ</param>
-		public DmdataApiClientBuilder Referrer(Uri? referrer)
+		public Interfaces.IDmdataApiClientBuilder Referrer(Uri? referrer)
 		{
 			HttpClient.DefaultRequestHeaders.Referrer = referrer;
 			return this;
@@ -71,7 +81,7 @@ namespace DmdataSharp
 		/// UserAgentを設定する
 		/// </summary>
 		/// <param name="userAgent">UserAgent</param>
-		public DmdataApiClientBuilder UserAgent(string userAgent)
+		public Interfaces.IDmdataApiClientBuilder UserAgent(string userAgent)
 		{
 			HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
 			return this;
@@ -82,7 +92,7 @@ namespace DmdataSharp
 		/// </summary>
 		/// <param name="apiKey">APIキー</param>
 		/// <returns></returns>
-		public DmdataApiClientBuilder UseApiKey(string apiKey)
+		public Interfaces.IDmdataApiClientBuilder UseApiKey(string apiKey)
 		{
 			Authenticator = new ApiKeyAuthenticator(apiKey);
 			return this;
@@ -93,7 +103,7 @@ namespace DmdataSharp
 		/// </summary>
 		/// <param name="credential">認可情報</param>
 		/// <returns></returns>
-		public DmdataApiClientBuilder UseOAuth(OAuthCredential credential)
+		public Interfaces.IDmdataApiClientBuilder UseOAuth(OAuthCredential credential)
 		{
 			Authenticator = new OAuthAuthenticator(credential);
 			return this;
@@ -107,7 +117,7 @@ namespace DmdataSharp
 		/// <param name="scopes">認可を求めるスコープ</param>
 		/// <returns></returns>
 		[Obsolete("廃止予定です。UseOAuthを利用してください")]
-		public DmdataApiClientBuilder UseOAuthClientCredential(string clientId, string clientSecret, string[] scopes)
+		public Interfaces.IDmdataApiClientBuilder UseOAuthClientCredential(string clientId, string clientSecret, string[] scopes)
 		{
 			Authenticator = new OAuthAuthenticator(new OAuthClientCredential(HttpClient, scopes, clientId, clientSecret));
 			return this;
@@ -124,7 +134,7 @@ namespace DmdataSharp
 		/// <param name="dpopKey">DPoPに使用する公開鍵と秘密鍵のペア nullの場合DPoPは使用されない</param>
 		/// <returns></returns>
 		[Obsolete("廃止予定です。UseOAuthを利用してください")]
-		public DmdataApiClientBuilder UseOAuthRefreshToken(string clientId, string[] scopes, string refreshToken, string? accessToken, DateTime? accessTokenExpire, ECDsa? dpopKey)
+		public Interfaces.IDmdataApiClientBuilder UseOAuthRefreshToken(string clientId, string[] scopes, string refreshToken, string? accessToken, DateTime? accessTokenExpire, ECDsa? dpopKey)
 		{
 			Authenticator = new OAuthAuthenticator(new OAuthRefreshTokenCredential(HttpClient, scopes, clientId, refreshToken, accessToken, accessTokenExpire, dpopKey));
 			return this;
@@ -135,9 +145,31 @@ namespace DmdataSharp
 		/// </summary>
 		/// <param name="authenticator">APIキー</param>
 		/// <returns></returns>
-		public DmdataApiClientBuilder UseAuthenticator(Authenticator authenticator)
+		public Interfaces.IDmdataApiClientBuilder UseAuthenticator(Authenticator authenticator)
 		{
 			Authenticator = authenticator;
+			return this;
+		}
+
+		/// <summary>
+		/// APIのベースURLを設定する
+		/// </summary>
+		/// <param name="apiBaseUrl">APIのベースURL</param>
+		/// <returns></returns>
+		public Interfaces.IDmdataApiClientBuilder SetApiBaseUrl(string apiBaseUrl)
+		{
+			ApiBaseUrl = apiBaseUrl ?? throw new ArgumentNullException(nameof(apiBaseUrl));
+			return this;
+		}
+
+		/// <summary>
+		/// データAPIのベースURLを設定する
+		/// </summary>
+		/// <param name="dataApiBaseUrl">データAPIのベースURL</param>
+		/// <returns></returns>
+		public Interfaces.IDmdataApiClientBuilder SetDataApiBaseUrl(string dataApiBaseUrl)
+		{
+			DataApiBaseUrl = dataApiBaseUrl ?? throw new ArgumentNullException(nameof(dataApiBaseUrl));
 			return this;
 		}
 
@@ -145,11 +177,11 @@ namespace DmdataSharp
 		/// API V2クライアントの初期化を行う
 		/// </summary>
 		/// <returns>API V2クライアントのインスタンス</returns>
-		public DmdataV2ApiClient BuildV2ApiClient()
+		public Interfaces.IDmdataV2ApiClient BuildV2ApiClient()
 		{
 			if (Authenticator is null)
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			return new DmdataV2ApiClient(HttpClient, Authenticator);
+			return new DmdataV2ApiClient(HttpClient, Authenticator, ApiBaseUrl, DataApiBaseUrl);
 		}
 
 		/// <summary>
@@ -160,7 +192,7 @@ namespace DmdataSharp
 		{
 			if (Authenticator is null)
 				throw new DmdataException("認証方法が指定されていません。 UseApiKey などを使用して認証方法を決定してください。");
-			var ins = Activator.CreateInstance(typeof(T), new object[] { HttpClient, Authenticator });
+			var ins = Activator.CreateInstance(typeof(T), new object[] { HttpClient, Authenticator, ApiBaseUrl, DataApiBaseUrl });
 			if (ins is not T api)
 				throw new DmdataException("Apiインスタンスの生成に失敗しました");
 			return api;

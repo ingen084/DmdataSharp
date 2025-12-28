@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30907.101
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36408.4 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{E62B8541-724B-492F-85D2-ED2CCA557363}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sandbox", "Sandbox\Sandbox.csproj", "{E62B8541-724B-492F-85D2-ED2CCA557363}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{2F4A5C8D-9B6E-4F1A-8E7D-3C5B2A9F4E8D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DmdataSharp", "src\DmdataSharp\DmdataSharp.csproj", "{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}"
 EndProject
@@ -24,6 +26,10 @@ Global
 		{E62B8541-724B-492F-85D2-ED2CCA557363}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E62B8541-724B-492F-85D2-ED2CCA557363}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E62B8541-724B-492F-85D2-ED2CCA557363}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F4A5C8D-9B6E-4F1A-8E7D-3C5B2A9F4E8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F4A5C8D-9B6E-4F1A-8E7D-3C5B2A9F4E8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F4A5C8D-9B6E-4F1A-8E7D-3C5B2A9F4E8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F4A5C8D-9B6E-4F1A-8E7D-3C5B2A9F4E8D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{52CE1D54-8D98-435D-96D9-CBDB463FDAA3}.Release|Any CPU.ActiveCfg = Release|Any CPU

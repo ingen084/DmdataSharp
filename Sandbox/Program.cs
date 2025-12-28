@@ -2,12 +2,14 @@
 using DmdataSharp.ApiParameters.V2;
 using DmdataSharp.Authentication.OAuth;
 using DmdataSharp.Exceptions;
+using DmdataSharp.Redundancy;
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace Tests
+namespace DmdataSharp.Sandbox
 {
 	internal static class Program
 	{
@@ -29,9 +31,13 @@ namespace Tests
 					"DmdataSharp サンプルアプリケーション",
 					u =>
 					{
-						Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
-					},
-					true);
+						if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+							// Windowsの場合はcmdで開く
+							Process.Start(new ProcessStartInfo("cmd", $"/c start {u.Replace("&", "^&")}") { CreateNoWindow = true });
+						else
+							Console.WriteLine("下記のURLをブラウザを開いて認証を行ってください。\n" + u);
+					}
+					);// ,true);
 			}
 			catch (Exception ex)
 			{
@@ -103,6 +109,8 @@ namespace Tests
 			Console.WriteLine("WebSocketへの接続を行います。 Enterキーで接続");
 			Console.ReadLine();
 
+			// 通常のWebSocket接続テスト
+			Console.WriteLine("=== 通常のWebSocket接続テスト ===");
 			using var socket = new DmdataV2Socket(client);
 			socket.Connected += (s, e) => Console.WriteLine("EVENT: connected");
 			socket.Disconnected += (s, e) => Console.WriteLine("EVENT: disconnected");
@@ -117,8 +125,54 @@ namespace Tests
 				AppName = "DmdataSharp;Example",
 			}, DmdataV2SocketEndpoints.Osaka);
 
+			Console.WriteLine("通常のWebSocket接続完了。Enterキーで高冗長性WebSocket接続テストに進む");
 			Console.ReadLine();
 			await socket.DisconnectAsync();
+
+			// 高冗長性WebSocket接続テスト
+			Console.WriteLine("=== 高冗長性WebSocket接続テスト ===");
+			using var redundantSocket = new RedundantDmdataSocketController(client);
+			
+			// イベントハンドラ設定
+			redundantSocket.ConnectionEstablished += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Connection established to {e.EndpointName} at {e.ConnectedTime:HH:mm:ss.fff}");
+			
+			redundantSocket.ConnectionLost += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Connection lost from {e.EndpointName} at {e.DisconnectedTime:HH:mm:ss.fff}. Reason: {e.Reason}");
+			
+			redundantSocket.AllConnectionsLost += (s, e) => 
+				Console.WriteLine($"REDUNDANT: ALL CONNECTIONS LOST at {e.LostTime:HH:mm:ss.fff}. Will attempt reconnect in {e.NextReconnectAttempt.TotalSeconds}s");
+			
+			redundantSocket.RedundancyRestored += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Redundancy restored via {e.RestoredEndpoint} at {e.RestoredTime:HH:mm:ss.fff}. Active connections: {e.TotalActiveConnections}");
+			
+			redundantSocket.RedundancyStatusChanged += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Status changed to {e.Status} at {e.ChangedTime:HH:mm:ss.fff}. Active: {e.ActiveConnections}, Endpoints: [{string.Join(", ", e.ActiveEndpoints)}]");
+			
+			redundantSocket.ConnectionError += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Connection error on {e.EndpointName}: {e.Exception?.Message ?? e.ErrorMessage?.Error}");
+			
+			redundantSocket.RawDataReceived += (s, e) => 
+				Console.WriteLine($"REDUNDANT: Raw data from {e.EndpointName} at {e.ReceivedTime:HH:mm:ss.fff}. Duplicate: {e.IsDuplicate}, Type: {e.Message?.Head.Type}");
+			
+			redundantSocket.DataReceived += (s, e) =>
+			{
+				Console.WriteLine($@"REDUNDANT: Final data  type: {e.Head.Type} key: {e.Id} valid: {e.Validate()}
+      body: {e.GetBodyString()[..20]}... 
+      Stats: Total={redundantSocket.TotalMessagesReceived}, Duplicates={redundantSocket.DuplicateMessagesFiltered}, Active={redundantSocket.ActiveConnectionCount}");
+			};
+
+			// デフォルトエンドポイント（東京+大阪）に接続
+			await redundantSocket.ConnectAsync(new SocketStartRequestParameter(TelegramCategoryV1.Earthquake)
+			{
+				AppName = "DmdataSharp",
+			});
+
+			Console.WriteLine($"高冗長性WebSocket接続完了。現在の状態: {redundantSocket.Status}, アクティブ接続数: {redundantSocket.ActiveConnectionCount}");
+			Console.WriteLine("接続されたエンドポイント: " + string.Join(", ", redundantSocket.ConnectedEndpoints));
+			Console.WriteLine("Enterキーで終了");
+			Console.ReadLine();
+			await redundantSocket.DisconnectAsync();
 
 			Console.Write("リフレッシュトークンを無効化");
 			await credential.RevokeRefreshTokenAsync();
