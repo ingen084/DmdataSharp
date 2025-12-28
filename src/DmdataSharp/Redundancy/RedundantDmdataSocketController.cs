@@ -17,7 +17,11 @@ public class RedundantDmdataSocketController : Interfaces.IRedundantDmdataSocket
 	private readonly MessageDeduplicator _deduplicator;
 	private readonly ConcurrentDictionary<string, Interfaces.IReconnectableDmdataSocket> _connections = new();
 	private readonly RedundantSocketOptions _options;
+#if NET9_0_OR_GREATER
+	private readonly Lock _statusLock = new();
+#else
 	private readonly object _statusLock = new();
+#endif
 	private readonly CancellationTokenSource _cancellationTokenSource = new();
 
 	private SocketStartRequestParameter? _currentParameters;
@@ -211,32 +215,29 @@ public class RedundantDmdataSocketController : Interfaces.IRedundantDmdataSocket
 
 	#region Private Methods
 
-	// 古い .net バージョンでは ObjectDisposedException がサポートされていないため、代わりに例外をスロー
 	private void ThrowIfDisposed()
 	{
+#if NET8_0_OR_GREATER
+		ObjectDisposedException.ThrowIf(_disposed, nameof(RedundantDmdataSocketController));
+#else
 		if (_disposed) throw new ObjectDisposedException(nameof(RedundantDmdataSocketController));
+#endif
 	}
 
-	private void FireRedundancyRestored(string endpoint)
+	private void FireRedundancyRestored(string endpoint) => RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
 	{
-		RedundancyRestored?.Invoke(this, new RedundancyRestoredEventArgs
-		{
-			RestoredTime = DateTime.Now,
-			RestoredEndpoint = endpoint,
-			TotalActiveConnections = ActiveConnectionCount
-		});
-	}
+		RestoredTime = DateTime.Now,
+		RestoredEndpoint = endpoint,
+		TotalActiveConnections = ActiveConnectionCount
+	});
 
-	private void FireAllConnectionsLost(string[] disconnectedEndpoints)
+	private void FireAllConnectionsLost(string[] disconnectedEndpoints) => AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
 	{
-		AllConnectionsLost?.Invoke(this, new AllConnectionsLostEventArgs
-		{
-			LostTime = DateTime.Now,
-			DisconnectedEndpoints = disconnectedEndpoints,
-			WillAttemptReconnect = true,
-			NextReconnectAttempt = TimeSpan.FromSeconds(1)
-		});
-	}
+		LostTime = DateTime.Now,
+		DisconnectedEndpoints = disconnectedEndpoints,
+		WillAttemptReconnect = true,
+		NextReconnectAttempt = TimeSpan.FromSeconds(1)
+	});
 
 	private async Task ConnectToEndpointAsync(string endpoint, SocketStartRequestParameter param)
 	{
@@ -391,7 +392,7 @@ public class RedundantDmdataSocketController : Interfaces.IRedundantDmdataSocket
 		}
 	}
 
-	#endregion
+#endregion
 
 	#region IAsyncDisposable
 
