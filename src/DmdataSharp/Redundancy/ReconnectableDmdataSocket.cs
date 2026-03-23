@@ -206,7 +206,12 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 		if (_attemptCount <= 1) return _reconnectionOptions.InitialDelay;
 		
 		var delay = TimeSpan.FromMilliseconds(_reconnectionOptions.InitialDelay.TotalMilliseconds * Math.Pow(_reconnectionOptions.BackoffMultiplier, _attemptCount - 1));
-		return delay > _reconnectionOptions.MaxDelay ? _reconnectionOptions.MaxDelay : delay;
+		
+		// MaxDelay を超える場合は上書きしてオーバーフローを防ぐ
+		if (delay > _reconnectionOptions.MaxDelay)
+			delay = _reconnectionOptions.MaxDelay;
+		
+		return delay;
 	}
 
 	/// <summary>
