@@ -204,14 +204,15 @@ public class ReconnectableDmdataSocket : Interfaces.IReconnectableDmdataSocket
 	private TimeSpan CalculateDelay()
 	{
 		if (_attemptCount <= 1) return _reconnectionOptions.InitialDelay;
-		
-		var delay = TimeSpan.FromMilliseconds(_reconnectionOptions.InitialDelay.TotalMilliseconds * Math.Pow(_reconnectionOptions.BackoffMultiplier, _attemptCount - 1));
-		
-		// MaxDelay を超える場合は上書きしてオーバーフローを防ぐ
-		if (delay > _reconnectionOptions.MaxDelay)
-			delay = _reconnectionOptions.MaxDelay;
-		
-		return delay;
+
+		// double 段階でクランプし、TimeSpan.FromMilliseconds のオーバーフローを防ぐ
+		var maxMs = _reconnectionOptions.MaxDelay.TotalMilliseconds;
+		var calculatedMs = _reconnectionOptions.InitialDelay.TotalMilliseconds * Math.Pow(_reconnectionOptions.BackoffMultiplier, _attemptCount - 1);
+
+		if (double.IsNaN(calculatedMs) || calculatedMs >= maxMs)
+			return _reconnectionOptions.MaxDelay;
+
+		return TimeSpan.FromMilliseconds(calculatedMs);
 	}
 
 	/// <summary>
