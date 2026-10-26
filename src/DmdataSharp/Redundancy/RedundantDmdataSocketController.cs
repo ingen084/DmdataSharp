@@ -182,18 +182,23 @@ public class RedundantDmdataSocketController : Interfaces.IRedundantDmdataSocket
 
 		// 接続を切断
 		var disconnectTasks = _connections.Values.Select(c => c.DisconnectAsync());
-		await Task.WhenAll(disconnectTasks);
-
-		// クリーンアップ
-		foreach (var kvp in _connections.ToArray())
+		try
 		{
-			if (_connections.TryRemove(kvp.Key, out var connection))
-			{
-				connection.Dispose();
-			}
+			await Task.WhenAll(disconnectTasks);
 		}
+		finally
+		{
+			// 切断に失敗した接続があっても、接続を残さないよう必ず破棄する
+			foreach (var kvp in _connections.ToArray())
+			{
+				if (_connections.TryRemove(kvp.Key, out var connection))
+				{
+					connection.Dispose();
+				}
+			}
 
-		UpdateStatus();
+			UpdateStatus();
+		}
 	}
 
 	/// <summary>

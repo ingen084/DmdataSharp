@@ -17,7 +17,12 @@ namespace DmdataSharp
 	public class DmdataV2Socket : Interfaces.IDmdataV2Socket
 	{
 		private readonly SemaphoreSlim _connectionLock = new(1, 1);
-		
+
+		/// <summary>
+		/// 切断時にWebSocketを閉じる処理を待つ最大時間
+		/// </summary>
+		private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(5);
+
 		/// <summary>
 		/// WebSocketへの接続が完了した
 		/// </summary>
@@ -69,13 +74,13 @@ namespace DmdataSharp
 		{
 			ApiClient = apiClient;
 
-			PingTimer = new Timer(_ =>
+			PingTimer = new Timer(async _ =>
 			{
 				try
 				{
-					if (!IsConnected)
+					if (!IsConnected || _webSocket == null)
 						return;
-					_webSocket?.SendAsync(
+					await _webSocket.SendAsync(
 #if NET472 || NETSTANDARD2_0
 										new ArraySegment<byte>(
 #endif
@@ -91,13 +96,26 @@ namespace DmdataSharp
 				catch (Exception ex)
 				{
 					Debug.WriteLine($"Socket Send Error {ex}");
+					// 送信に失敗した接続は使えないため、受信を止めて切断として扱う
+					try
+					{
+						_tokenSource?.Cancel();
+					}
+					catch (ObjectDisposedException) { }
 				}
 			}, null, Timeout.Infinite, Timeout.Infinite);
-			WatchDogTimer = new Timer(_ =>
+			WatchDogTimer = new Timer(async _ =>
 			{
-				if (!IsConnected)
-					return;
-				DisconnectAsync().ConfigureAwait(false);
+				try
+				{
+					if (!IsConnected)
+						return;
+					await DisconnectAsync();
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine($"WatchDog Disconnect Error {ex}");
+				}
 			}, null, Timeout.Infinite, Timeout.Infinite);
 		}
 
@@ -149,24 +167,26 @@ namespace DmdataSharp
 		private async Task ReceiverWebSocket()
 		{
 			var token = _tokenSource?.Token ?? throw new Exception("CancellationTokenSource が初期化されていません");
+			var webSocket = _webSocket ?? throw new Exception("WebSocket が初期化されていません");
+			// 切断時にサーバーへ伝える理由 (null の場合は閉じる処理だけ行う)
+			(WebSocketCloseStatus Status, string? Description)? closeReason = null;
 			try
 			{
 				// 1MB
 				var buffer = new byte[1024 * 1024];
 
-				while (_webSocket?.State == WebSocketState.Open)
+				while (webSocket.State == WebSocketState.Open)
 				{
 					// 所得情報確保用の配列を準備
 					var segment = new ArraySegment<byte>(buffer);
 					// サーバからのレスポンス情報を取得
-					var result = await _webSocket.ReceiveAsync(segment, token);
+					var result = await webSocket.ReceiveAsync(segment, token);
 
 					// エンドポイントCloseの場合、処理を中断
 					if (result.MessageType == WebSocketMessageType.Close)
 					{
 						Debug.WriteLine("close message によりWebSocketが切断されました。");
-						await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token);
-						OnDisconnected();
+						closeReason = (WebSocketCloseStatus.NormalClosure, null);
 						return;
 					}
 
@@ -174,8 +194,7 @@ namespace DmdataSharp
 					if (result.MessageType == WebSocketMessageType.Binary)
 					{
 						Debug.WriteLine("WebSocketでBinaryのMessageTypeが飛んできました。");
-						await _webSocket.CloseAsync(WebSocketCloseStatus.InvalidMessageType, "DO NOT READ BINARY", token);
-						Disconnected?.Invoke(this, EventArgs.Empty);
+						closeReason = (WebSocketCloseStatus.InvalidMessageType, "DO NOT READ BINARY");
 						return;
 					}
 
@@ -185,12 +204,11 @@ namespace DmdataSharp
 					{
 						if (length >= buffer.Length)
 						{
-							await _webSocket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "TOO LONG MESSAGE", token);
-							Disconnected?.Invoke(this, EventArgs.Empty);
+							closeReason = (WebSocketCloseStatus.MessageTooBig, "TOO LONG MESSAGE");
 							return;
 						}
 						segment = new ArraySegment<byte>(buffer, length, buffer.Length - length);
-						result = await _webSocket.ReceiveAsync(segment, token);
+						result = await webSocket.ReceiveAsync(segment, token);
 
 						length += result.Count;
 					}
@@ -226,7 +244,7 @@ namespace DmdataSharp
 						// pongを返す
 						case "ping":
 							var pingMessage = JsonSerializer.Deserialize(messageString, WebSocketV2MessageSerializerContext.Default.PingWebSocketMessage);
-							await _webSocket.SendAsync(
+							await webSocket.SendAsync(
 #if NET472 || NETSTANDARD2_0
 									new ArraySegment<byte>(
 #endif
@@ -242,18 +260,46 @@ namespace DmdataSharp
 					}
 				}
 			}
-			catch (TaskCanceledException)
+			catch (OperationCanceledException)
 			{
-				if (IsConnected && _webSocket != null)
-					await _webSocket.CloseAsync(WebSocketCloseStatus.Empty, null, token);
-				OnDisconnected();
+				closeReason = (WebSocketCloseStatus.Empty, null);
 			}
 			catch (Exception ex)
 			{
 				Debug.WriteLine("WebSocket受信スレッドで例外が発生しました\n" + ex);
-				if (IsConnected && _webSocket != null)
-					await _webSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED", _tokenSource?.Token ?? CancellationToken.None);
+				closeReason = (WebSocketCloseStatus.InvalidPayloadData, "CLIENT EXCEPTED");
+			}
+			finally
+			{
+				// どの経路で受信を終えても、IsConnected が false になってから切断を通知する
+				await CloseWebSocketAsync(webSocket, closeReason);
 				OnDisconnected();
+			}
+		}
+
+		/// <summary>
+		/// WebSocketを閉じる<br/>
+		/// 閉じられなかった場合は強制的に切断し、例外は投げない
+		/// </summary>
+		private static async Task CloseWebSocketAsync(ClientWebSocket webSocket, (WebSocketCloseStatus Status, string? Description)? reason)
+		{
+			try
+			{
+				if (reason is { } r && webSocket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+				{
+					using var timeout = new CancellationTokenSource(CloseTimeout);
+					await webSocket.CloseAsync(r.Status, r.Description, timeout.Token);
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine("WebSocketを正常に閉じられませんでした\n" + ex);
+			}
+			finally
+			{
+				// 送信の失敗などでは State が Open のまま残るため、閉じられなかった場合は強制的に切断する
+				if (webSocket.State != WebSocketState.Closed)
+					webSocket.Abort();
 			}
 		}
 
@@ -263,8 +309,15 @@ namespace DmdataSharp
 		private void OnDisconnected()
 		{
 			IsDisposed = true;
-			PingTimer.Change(Timeout.Infinite, Timeout.Infinite);
-			WatchDogTimer.Change(Timeout.Infinite, Timeout.Infinite);
+			try
+			{
+				PingTimer.Change(Timeout.Infinite, Timeout.Infinite);
+				WatchDogTimer.Change(Timeout.Infinite, Timeout.Infinite);
+			}
+			catch (ObjectDisposedException)
+			{
+				// Dispose によって受信を終えた場合はタイマーが破棄済み
+			}
 			Disconnected?.Invoke(this, EventArgs.Empty);
 		}
 
@@ -283,9 +336,10 @@ namespace DmdataSharp
 				_tokenSource?.Cancel();
 				await _webSocketConnectionTask;
 			}
-			catch (TaskCanceledException)
+			catch (Exception ex)
 			{
-				// キャンセルは期待される動作
+				// 受信処理は切断まで行うため、ここで起きた例外は切断の妨げにならない
+				Debug.WriteLine("WebSocketの切断待ちで例外が発生しました\n" + ex);
 			}
 			finally
 			{
